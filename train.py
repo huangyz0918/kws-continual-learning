@@ -140,7 +140,7 @@ if __name__ == "__main__":
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
-        parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
+        parser.add_argument("--cha", default=config["tc-resnet14"], type=list,
                             help="the channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="the scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="model saving frequency (in step)")
@@ -148,6 +148,7 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
+    # TODO: setup the keywords via input parameters.
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],

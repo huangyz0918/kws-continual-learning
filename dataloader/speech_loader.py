@@ -16,7 +16,8 @@ import torchaudio
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
-__classes__ = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
+# __classes__ = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
+__classes__ = ["yes", "unknown", "silence"]
 
 
 class SpeechCommandDataset(Dataset):
@@ -51,7 +52,7 @@ class SpeechCommandDataset(Dataset):
         dataset_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
-            if category in __classes__[:-2]:  # "yes and go"
+            if category in __classes__[:-2]:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
             elif category == "_silence_":
