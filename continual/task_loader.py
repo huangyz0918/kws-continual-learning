@@ -1,8 +1,10 @@
 """
+Data loader class for constructure continual learning scenario.
+- Keyword spliting protocol.
+
 @author huangyz0918
 @date 06/08/2021
 """
-
 import os
 import random
 import librosa

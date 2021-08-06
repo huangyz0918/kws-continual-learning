@@ -1,5 +1,9 @@
-import time
+"""
+@author huangyz0918
+@date 06/08/2021
+"""
 
+import time
 
 def readlines(datapath):
     with open(datapath, 'r') as f:
