@@ -10,8 +10,6 @@ from librosa.util import pad_center
 from librosa.util import tiny
 
 
-
-
 def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
                      n_fft=800, dtype=np.float32, norm=None):
     """
@@ -46,7 +44,7 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
 
     # Compute the squared window at the desired length
     win_sq = get_window(window, win_length, fftbins=True)
-    win_sq = librosa_util.normalize(win_sq, norm=norm)**2
+    win_sq = librosa_util.normalize(win_sq, norm=norm) ** 2
     win_sq = librosa_util.pad_center(win_sq, n_fft)
 
     # Fill the envelope
@@ -56,9 +54,8 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
     return x
 
 
-
 class STFT(torch.nn.Module):
-    def __init__(self, filter_length = 1024, hop_length = 512, win_length = None, window = 'hann'):
+    def __init__(self, filter_length=1024, hop_length=512, win_length=None, window='hann'):
         """
         This module implements an STFT using 1D convolution and 1D transpose convolutions.
         This is a bit tricky so there are some cases that probably won't work as working
@@ -75,30 +72,29 @@ class STFT(torch.nn.Module):
                 (default: {'hann'})
         """
         super(STFT, self).__init__()
-        self.filter_length     = filter_length
-        self.hop_length        = hop_length
-        self.win_length        = win_length if win_length else filter_length
-        self.window            = window
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.win_length = win_length if win_length else filter_length
+        self.window = window
         self.forward_transform = None
-        self.pad_amount        = int(self.filter_length / 2)
-        scale                  = self.filter_length / self.hop_length
-        fourier_basis          = np.fft.fft(np.eye(self.filter_length))
+        self.pad_amount = int(self.filter_length / 2)
+        scale = self.filter_length / self.hop_length
+        fourier_basis = np.fft.fft(np.eye(self.filter_length))
 
-        cutoff                 = int((self.filter_length / 2 + 1))
-        fourier_basis          = np.vstack([
-                                    np.real(fourier_basis[:cutoff, :]),
-                                    np.imag(fourier_basis[:cutoff, :])])
-        forward_basis          = torch.FloatTensor(fourier_basis[:, None, :])
+        cutoff = int((self.filter_length / 2 + 1))
+        fourier_basis = np.vstack([
+            np.real(fourier_basis[:cutoff, :]),
+            np.imag(fourier_basis[:cutoff, :])])
+        forward_basis = torch.FloatTensor(fourier_basis[:, None, :])
 
-        assert(filter_length >= self.win_length)
+        assert (filter_length >= self.win_length)
         # get window and zero center pad it to filter_length
-        fft_window             = get_window(window, self.win_length, fftbins = True)
-        fft_window             = pad_center(fft_window, filter_length)
-        fft_window             = torch.from_numpy(fft_window).float()
+        fft_window = get_window(window, self.win_length, fftbins=True)
+        fft_window = pad_center(fft_window, filter_length)
+        fft_window = torch.from_numpy(fft_window).float()
 
-        forward_basis          *= fft_window # window the bases
+        forward_basis *= fft_window  # window the bases
         self.register_buffer('forward_basis', forward_basis.float())
-
 
     def transform(self, input_data):
         """
@@ -116,26 +112,25 @@ class STFT(torch.nn.Module):
                 Phase of STFT with shape (num_batch, 
                 num_frequencies, num_frames)
         """
-        num_batches      = input_data.shape[0]
-        num_samples      = input_data.shape[-1]
+        num_batches = input_data.shape[0]
+        num_samples = input_data.shape[-1]
         self.num_samples = num_samples
 
         # similar to librosa, reflect-pad the input
         input_data = input_data.view(num_batches, 1, num_samples)
         input_data = F.pad(
-            input_data.unsqueeze(1), (self.pad_amount, self.pad_amount, 0, 0), mode = 'reflect')
+            input_data.unsqueeze(1), (self.pad_amount, self.pad_amount, 0, 0), mode='reflect')
         input_data = input_data.squeeze(1)
 
-        forward_transform = F.conv1d(input_data, self.forward_basis, stride = self.hop_length, padding = 0)
+        forward_transform = F.conv1d(input_data, self.forward_basis, stride=self.hop_length, padding=0)
 
-        cutoff    = int((self.filter_length / 2) + 1)
+        cutoff = int((self.filter_length / 2) + 1)
         real_part = forward_transform[:, :cutoff, :]
         imag_part = forward_transform[:, cutoff:, :]
 
         # magnitude = torch.sqrt(real_part**2 + imag_part**2)
         # phase     = torch.atan2(imag_part.data, real_part.data)
         return real_part, imag_part
-
 
     def forward(self, input_data):
         """
@@ -151,38 +146,36 @@ class STFT(torch.nn.Module):
         """
         # self.magnitude, self.phase = self.transform(input_data)
         real_part, imag_part = self.transform(input_data)
-        real_part = torch.unsqueeze(real_part, dim = 1)
-        imag_part = torch.unsqueeze(imag_part, dim = 1)
+        real_part = torch.unsqueeze(real_part, dim=1)
+        imag_part = torch.unsqueeze(imag_part, dim=1)
         return real_part, imag_part
 
 
-
 class InverseSTFT(nn.Module):
-    def __init__(self, filter_length = 1024, hop_length = 512, win_length = None, window = 'hann'):
+    def __init__(self, filter_length=1024, hop_length=512, win_length=None, window='hann'):
         super(InverseSTFT, self).__init__()
-        self.filter_length     = filter_length
-        self.hop_length        = hop_length
-        self.win_length        = win_length if win_length else filter_length
-        self.window            = window
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.win_length = win_length if win_length else filter_length
+        self.window = window
         self.forward_transform = None
-        self.pad_amount        = int(self.filter_length / 2)
-        
-        scale                  = self.filter_length / self.hop_length
-        fourier_basis          = np.fft.fft(np.eye(self.filter_length))
+        self.pad_amount = int(self.filter_length / 2)
 
-        cutoff                 = int((self.filter_length / 2 + 1))
-        fourier_basis          = np.vstack([np.real(fourier_basis[:cutoff, :]), np.imag(fourier_basis[:cutoff, :])])
-        inverse_basis          = torch.FloatTensor(np.linalg.pinv(scale * fourier_basis).T[:, None, :])
+        scale = self.filter_length / self.hop_length
+        fourier_basis = np.fft.fft(np.eye(self.filter_length))
 
-        assert(filter_length >= self.win_length)
+        cutoff = int((self.filter_length / 2 + 1))
+        fourier_basis = np.vstack([np.real(fourier_basis[:cutoff, :]), np.imag(fourier_basis[:cutoff, :])])
+        inverse_basis = torch.FloatTensor(np.linalg.pinv(scale * fourier_basis).T[:, None, :])
+
+        assert (filter_length >= self.win_length)
         # get window and zero center pad it to filter_length
-        fft_window             = get_window(window, self.win_length, fftbins=True)
-        fft_window             = pad_center(fft_window, filter_length)
-        fft_window             = torch.from_numpy(fft_window).float()
+        fft_window = get_window(window, self.win_length, fftbins=True)
+        fft_window = pad_center(fft_window, filter_length)
+        fft_window = torch.from_numpy(fft_window).float()
 
-        inverse_basis          *= fft_window # inverse basis
+        inverse_basis *= fft_window  # inverse basis
         self.register_buffer('inverse_basis', inverse_basis.float())
-
 
     def inverse(self, real_part, imag_part):
         """
@@ -198,11 +191,12 @@ class InverseSTFT(nn.Module):
             inverse_transform {tensor}
                 Reconstructed audio given magnitude and phase. Of shape (num_batch, num_samples)
         """
-        magnitude = torch.sqrt(real_part**2 + imag_part**2)
-        phase     = torch.atan2(imag_part.data, real_part.data)
+        magnitude = torch.sqrt(real_part ** 2 + imag_part ** 2)
+        phase = torch.atan2(imag_part.data, real_part.data)
 
-        recombine_magnitude_phase = torch.cat([magnitude*torch.cos(phase), magnitude*torch.sin(phase)], dim=1)
-        inverse_transform         = F.conv_transpose1d(recombine_magnitude_phase, self.inverse_basis, stride=self.hop_length, padding=0)
+        recombine_magnitude_phase = torch.cat([magnitude * torch.cos(phase), magnitude * torch.sin(phase)], dim=1)
+        inverse_transform = F.conv_transpose1d(recombine_magnitude_phase, self.inverse_basis, stride=self.hop_length,
+                                               padding=0)
 
         if self.window is not None:
             window_sum = window_sumsquare(
@@ -219,10 +213,9 @@ class InverseSTFT(nn.Module):
             inverse_transform *= float(self.filter_length) / self.hop_length
 
         inverse_transform = inverse_transform[..., self.pad_amount:]
-        inverse_transform = inverse_transform[..., :len(inverse_transform)-self.pad_amount]
+        inverse_transform = inverse_transform[..., :len(inverse_transform) - self.pad_amount]
         inverse_transform = inverse_transform.squeeze(1)
         return inverse_transform
-
 
     def forward(self, real_part, imag_part):
         inverse_transform = self.inverse(real_part, imag_part)

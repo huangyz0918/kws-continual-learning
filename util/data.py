@@ -1,5 +1,6 @@
 import time
 
+
 def readlines(datapath):
     with open(datapath, 'r') as f:
         lines = f.read().splitlines()
@@ -12,6 +13,6 @@ def sample_dataset(dataloader):
     for index, data in enumerate(dataloader):
         sample = data
         if index == 0:
-            break  
+            break
     print("batch sampling time:  ", time.time() - start)
     return sample
