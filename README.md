@@ -16,6 +16,7 @@ conda active kws
 If you don't have Anaconda, you can install (Linux version) by
 
 ```bash
+cd <ROOT>
 bash conda_install.sh
 ```
 
@@ -24,6 +25,7 @@ bash conda_install.sh
 We use the Google Speech Commands Dataset (GSC) as the training data. By running the script, you can download the training data:
 
 ```bash
+cd <ROOT>/dataset
 bash download_gsc.sh
 ```
 
