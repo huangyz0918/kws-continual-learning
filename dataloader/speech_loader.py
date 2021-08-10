@@ -16,12 +16,9 @@ import torchaudio
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
-# __classes__ = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
-__classes__ = ["yes", "unknown", "silence"]
-
 
 class SpeechCommandDataset(Dataset):
-    def __init__(self, datapath, filename, is_training):
+    def __init__(self, datapath, filename, is_training, class_list):
         super(SpeechCommandDataset, self).__init__()
         """
         Args:
@@ -29,12 +26,13 @@ class SpeechCommandDataset(Dataset):
             filename: train_filename or valid_filename
             is_training: True or False
         """
+        self.classes = class_list
         self.sampling_rate = 16000
         self.sample_length = 16000
         self.datapath = datapath
         self.filename = filename
         self.is_training = is_training
-        self.class_encoding = {category: index for index, category in enumerate(__classes__)}
+        self.class_encoding = {category: index for index, category in enumerate(self.classes)}
 
         # Load background data as learning noise.
         self.noise_path = os.path.join(self.datapath, "_background_noise_")
@@ -52,7 +50,7 @@ class SpeechCommandDataset(Dataset):
         dataset_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
-            if category in __classes__[:-2]:
+            if category in self.classes[:-2]:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
             elif category == "_silence_":

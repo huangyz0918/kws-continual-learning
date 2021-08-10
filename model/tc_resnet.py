@@ -130,8 +130,3 @@ class MFCC_TCResnet(nn.Module):
         mel_sepctogram = self.mfcc_layer(waveform)
         logits = self.tc_resnet(mel_sepctogram)
         return logits
-
-# if __name__ == "__main__":
-#     model = TCResNet(40, [16, 24, 32, 48], 32)
-#     test_inputs = torch.ones([8, 1, 40, 64])
-#     out = model(test_inputs)

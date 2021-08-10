@@ -21,20 +21,20 @@ from dataloader import *
 from model import *
 from util import *
 
-
 class Trainer:
-    def __init__(self, opt):
+    def __init__(self, opt, class_list):
         self.opt = opt
         self.epoch = opt.epoch
         self.lr = opt.lr
         self.batch = opt.batch
         self.step = opt.step
         self.device, self.device_list = prepare_device(opt.gpu)
+        self.class_list = class_list
 
-        train_filename = readlines("./dataset/splits/{}.txt".format("train"))
-        valid_filename = readlines("./dataset/splits/{}.txt".format("valid"))
-        train_dataset = SpeechCommandDataset("./dataset/data", train_filename, True)
-        valid_dataset = SpeechCommandDataset("./dataset/data", valid_filename, False)
+        train_filename = readlines(f"{self.opt.dpath}/splits/train.txt")
+        valid_filename = readlines(f"{self.opt.dpath}/splits/valid.txt")
+        train_dataset = SpeechCommandDataset(f"{self.opt.dpath}/data", train_filename, True, self.class_list)
+        valid_dataset = SpeechCommandDataset(f"{self.opt.dpath}/data", valid_filename, False, self.class_list)
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
 
         self.train_dataloader = DataLoader(
@@ -45,14 +45,14 @@ class Trainer:
         self.valid_length = len(self.valid_dataloader)
         print(">>>   Train length: {}, Valid length: {}, Batch Size: {}".format(self.train_length, self.valid_length,
                                                                                 self.batch))
-
+        print(f">>>  Keywords: {self.class_list}")
         if self.opt.model == "stft":
             self.model = STFT_TCResnet(
                 filter_length=256, hop_length=129, bins=129,
-                channels=self.opt.cha, channel_scale=self.opt.scale, num_classes=12).to(self.device)
+                channels=self.opt.cha, channel_scale=self.opt.scale, num_classes=len(train_dataset.classes)).to(self.device)
         elif self.opt.model == "mfcc":
             self.model = MFCC_TCResnet(
-                bins=40, channel_scale=self.opt.scale, num_classes=12).to(self.device)
+                bins=40, channel_scale=self.opt.scale, num_classes=len(train_dataset.classes)).to(self.device)
 
         print(f">>>   Num of model parameters: {parameter_number(self.model)}")
 
@@ -113,6 +113,11 @@ class Trainer:
             neptune.log_metric('train_accuracy', 100 * self.loss_name["train_accuracy"])
             neptune.log_metric('valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
+        # test_inputs, test_label = sample_dataset(self.train_dataloader)
+        # out = self.model(test_inputs)
+        # predict_1, predict = torch.max(out.data, 1)
+        # print("-->", predict_1)
+
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
         if not os.path.isdir(save_directory):
@@ -138,17 +143,20 @@ if __name__ == "__main__":
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
+        parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
-        parser.add_argument("--cha", default=config["tc-resnet14"], type=list,
-                            help="the channel of model layers (in list)")
-        parser.add_argument("--scale", default=3, type=int, help="the scale of model channel")
-        parser.add_argument("--freq", default=30, type=int, help="model saving frequency (in step)")
-        parser.add_argument("--save", default="stft", type=str, help="the save name")
+        parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
+                            help="The channel of model layers (in list)")
+        parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
+        parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
+        parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
         return args
 
     # TODO: setup the keywords via input parameters.
+    class_list = ["yes", "unknown", "silence"]
+    # class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -160,4 +168,4 @@ if __name__ == "__main__":
                               tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'],
                               params=vars(options(config)))
 
-    Trainer(options(config)).model_train()
+    Trainer(options(config), class_list).model_train()
