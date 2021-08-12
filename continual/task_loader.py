@@ -28,7 +28,7 @@ class ContinualKeywordDataset(Dataset):
     class_list: the list of model training keywords
     """
     def __init__(self, datapath, filename, is_training, class_list):
-        super(SpeechCommandDataset, self).__init__()
+        super(ContinualKeywordDataset, self).__init__()
         self.classes = class_list
         self.sampling_rate = 16000
         self.sample_length = 16000
@@ -124,7 +124,7 @@ class ContinualNoiseDataset(Dataset):
     class_list: the list of model training keywords
     """
     def __init__(self, datapath, filename, is_training, class_list):
-        super(SpeechCommandDataset, self).__init__()
+        super(ContinualNoiseDataset, self).__init__()
         self.classes = class_list
         self.sampling_rate = 16000
         self.sample_length = 16000
