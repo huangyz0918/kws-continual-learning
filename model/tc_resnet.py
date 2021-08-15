@@ -1,4 +1,6 @@
 """
+The TC-ResNet model.
+
 @author huangyz0918
 @date 06/08/2021
 """
@@ -12,8 +14,7 @@ from torchaudio.transforms import Spectrogram
 from torchaudio.transforms import MelSpectrogram
 from torchaudio.transforms import MFCC
 
-from model.util import STFT
-from model.util import MFCC
+from .util import STFT
 
 
 class Residual(nn.Module):

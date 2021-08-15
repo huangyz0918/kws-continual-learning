@@ -3,6 +3,7 @@
 @date 06/08/2021
 """
 
+import time
 import torch
 
 
@@ -31,3 +32,20 @@ def prepare_device(n_gpu_use):
     device = torch.device("cuda" if n_gpu_use > 0 else "cpu")
     list_ids = list(range(n_gpu_use))
     return device, list_ids
+
+
+def readlines(datapath):
+    with open(datapath, 'r') as f:
+        lines = f.read().splitlines()
+    return lines
+
+
+def sample_dataset(dataloader):
+    sample = 0
+    start = time.time()
+    for index, data in enumerate(dataloader):
+        sample = data
+        if index == 0:
+            break
+    print("batch sampling time:  ", time.time() - start)
+    return sample

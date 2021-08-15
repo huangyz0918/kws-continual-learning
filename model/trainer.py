@@ -15,9 +15,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from dataloader import SpeechCommandDataset
-from util import readlines, parameter_number, prepare_device
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
+from .dataloader import SpeechCommandDataset
+from .tc_resnet import TCResNet, STFT_TCResnet, MFCC_TCResnet
+from .util import readlines, parameter_number, prepare_device
 
 
 class Trainer:
