@@ -61,10 +61,10 @@ if __name__ == "__main__":
     # Task 1
     Trainer(parameters, class_list_1, tag='task1', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
-    Evaluator(model, 't1v1').evaluate(test_loader_1) # evaluate on dataset 1
+    Evaluator(model, 't1v1').evaluate(test_loader_1) # t1v1 (train on t1 validate on t1)
     # Task 2
     Trainer(parameters, class_list_2, tag='task2', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
-    Evaluator(model, 't2v1').evaluate(test_loader_1) # evaluate on dataset 1
-    print(f">>>   Testing Keywords: {test_loader_2}")
-    Evaluator(model, 't2v2').evaluate(test_loader_2) # evaluate on dataset 2
+    Evaluator(model, 't2v1').evaluate(test_loader_1) # t2v1 (train on t2 validate on t1)
+    print(f">>>   Testing Keywords: {class_list_2}")
+    Evaluator(model, 't2v2').evaluate(test_loader_2) # t2v2 (train on t2 validate on t2)
