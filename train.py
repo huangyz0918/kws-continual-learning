@@ -29,8 +29,7 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list = ["yes", "unknown", "silence"]
-    # class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
+    class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],

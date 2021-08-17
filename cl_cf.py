@@ -7,7 +7,8 @@ Example training script of KWS models.
 
 import neptune
 import argparse
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
+from model import Trainer, Evaluator, get_dataloader
 
 
 if __name__ == "__main__":
@@ -30,8 +31,8 @@ if __name__ == "__main__":
         return args
 
     class_list_1 = ["yes", "unknown", "silence"]
-    # class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
-    class_list_2 = ["yes", "no", "up", "down", "unknown", "silence"]
+    class_list_2 = ["down", "unknown", "silence"]
+    test_class_list_2 = ["yes", "down", "unknown", "silence"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -54,4 +55,16 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    Trainer(parameters, class_list_1, model=model).model_train()
+    # load testing dataset
+    _, test_loader_1 = get_dataloader(parameters.dpath, class_list_1)
+    _, test_loader_2 = get_dataloader(parameters.dpath, class_list_2)
+    # Task 1
+    Trainer(parameters, class_list_1, tag='task1', model=model).model_train()
+    print(f">>>   Testing Keywords: {class_list_1}")
+    Evaluator(model, 't1v1').evaluate(test_loader_1) # evaluate on dataset 1
+    # Task 2
+    Trainer(parameters, class_list_2, tag='task2', model=model).model_train()
+    print(f">>>   Testing Keywords: {class_list_1}")
+    Evaluator(model, 't2v1').evaluate(test_loader_1) # evaluate on dataset 1
+    print(f">>>   Testing Keywords: {test_loader_2}")
+    Evaluator(model, 't2v2').evaluate(test_loader_2) # evaluate on dataset 2

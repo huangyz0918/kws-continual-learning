@@ -20,8 +20,26 @@ from .tc_resnet import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from .util import readlines, parameter_number, prepare_device
 
 
+def get_dataloader(data_path, class_list, batch_size=1):
+    """
+    To get the GSC data and build the data loader from a list of keywords.
+    """
+    train_filename = readlines(f"{data_path}/splits/train.txt")
+    valid_filename = readlines(f"{data_path}/splits/valid.txt")
+    train_dataset = SpeechCommandDataset(f"{data_path}/data", train_filename, True, class_list)
+    valid_dataset = SpeechCommandDataset(f"{data_path}/data", valid_filename, False, class_list)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+
+    return train_dataloader, valid_dataloader
+
+
 class Trainer:
-    def __init__(self, opt, class_list, model=None):
+    """
+    The KWS model training class.
+    """
+    def __init__(self, opt, class_list, tag=None, model=None):
         self.opt = opt
         self.epoch = opt.epoch
         self.lr = opt.lr
@@ -30,20 +48,14 @@ class Trainer:
         self.device, self.device_list = prepare_device(opt.gpu)
         self.class_list = class_list
         self.model = model
+        self.tag = tag
 
-        train_filename = readlines(f"{self.opt.dpath}/splits/train.txt")
-        valid_filename = readlines(f"{self.opt.dpath}/splits/valid.txt")
-        train_dataset = SpeechCommandDataset(f"{self.opt.dpath}/data", train_filename, True, self.class_list)
-        valid_dataset = SpeechCommandDataset(f"{self.opt.dpath}/data", valid_filename, False, self.class_list)
-        self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
-
-        self.train_dataloader = DataLoader(train_dataset, batch_size=self.batch, shuffle=True, drop_last=True)
-        self.valid_dataloader = DataLoader(valid_dataset, batch_size=self.batch, shuffle=True, drop_last=True)
+        self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         self.train_length = len(self.train_dataloader)
         self.valid_length = len(self.valid_dataloader)
-
-        print(">>>   Train length: {}, Valid length: {}, Batch Size: {}".format(self.train_length, self.valid_length, self.batch))
-        print(f">>>  Keywords: {self.class_list}")
+        self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
+        print(">>>   Train length: {}, Valid length: {}, Batch size: {}".format(self.train_length, self.valid_length, self.batch))
+        print(f">>>   Training Keywords: {self.class_list}")
 
         if self.model is None:
             if self.opt.model == "stft":
@@ -108,11 +120,11 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            neptune.log_metric('epoch', self.epo)
-            neptune.log_metric('train_loss', self.loss_name["train_loss"])
-            neptune.log_metric('val_loss', self.loss_name["valid_loss"])
-            neptune.log_metric('train_accuracy', 100 * self.loss_name["train_accuracy"])
-            neptune.log_metric('valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+            neptune.log_metric(f'{self.tag}-epoch', self.epo)
+            neptune.log_metric(f'{self.tag}-train_loss', self.loss_name["train_loss"])
+            neptune.log_metric(f'{self.tag}-val_loss', self.loss_name["valid_loss"])
+            neptune.log_metric(f'{self.tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+            neptune.log_metric(f'{self.tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
