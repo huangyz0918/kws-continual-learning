@@ -16,7 +16,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--batch", default=128, type=int, help="Training batch size")
+        parser.add_argument("--batch", default=256, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
@@ -31,7 +31,9 @@ if __name__ == "__main__":
         return args
 
     class_list_1 = ["yes", "unknown", "silence"]
-    class_list_2 = ["down", "unknown", "silence"]
+    class_list_2 = ["no", "unknown", "silence"]
+    class_list_3 = ["on", "unknown", "silence"]
+    class_list_4 = ["down", "unknown", "silence"]
     test_class_list_2 = ["yes", "down", "unknown", "silence"]
 
     config = {
@@ -58,6 +60,8 @@ if __name__ == "__main__":
     # load testing dataset
     _, test_loader_1 = get_dataloader(parameters.dpath, class_list_1)
     _, test_loader_2 = get_dataloader(parameters.dpath, class_list_2)
+    _, test_loader_3 = get_dataloader(parameters.dpath, class_list_3)
+    _, test_loader_4 = get_dataloader(parameters.dpath, class_list_4)
     # Task 1
     Trainer(parameters, class_list_1, tag='task1', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
@@ -68,3 +72,21 @@ if __name__ == "__main__":
     Evaluator(model, 't2v1').evaluate(test_loader_1) # t2v1 (train on t2 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
     Evaluator(model, 't2v2').evaluate(test_loader_2) # t2v2 (train on t2 validate on t2)
+    # Task 3
+    Trainer(parameters, class_list_3, tag='task3', model=model).model_train()
+    print(f">>>   Testing Keywords: {class_list_1}")
+    Evaluator(model, 't3v1').evaluate(test_loader_1) # t3v1 (train on t3 validate on t1)
+    print(f">>>   Testing Keywords: {class_list_2}")
+    Evaluator(model, 't3v2').evaluate(test_loader_2) # t3v2 (train on t3 validate on t2)  
+    print(f">>>   Testing Keywords: {class_list_3}")
+    Evaluator(model, 't3v3').evaluate(test_loader_3) # t3v3 (train on t3 validate on t3)  
+    # Task 4
+    Trainer(parameters, class_list_4, tag='task4', model=model).model_train()
+    print(f">>>   Testing Keywords: {class_list_1}")
+    Evaluator(model, 't4v1').evaluate(test_loader_1) # t4v1 (train on t4 validate on t1)
+    print(f">>>   Testing Keywords: {class_list_2}")
+    Evaluator(model, 't4v2').evaluate(test_loader_2) # t4v2 (train on t4 validate on t2)  
+    print(f">>>   Testing Keywords: {class_list_3}")
+    Evaluator(model, 't4v3').evaluate(test_loader_3) # t4v3 (train on t4 validate on t3)  
+    print(f">>>   Testing Keywords: {class_list_4}")
+    Evaluator(model, 't4v4').evaluate(test_loader_4) # t4v4 (train on t4 validate on t4)  
