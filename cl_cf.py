@@ -30,11 +30,11 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "unknown", "silence"]
-    class_list_2 = ["no", "unknown", "silence"]
-    class_list_3 = ["on", "unknown", "silence"]
-    class_list_4 = ["down", "unknown", "silence"]
-    test_class_list_2 = ["yes", "down", "unknown", "silence"]
+    class_list_1 = ["yes", "no", "unknown", "silence"]
+    class_list_2 = ["up", "down", "unknown", "silence"]
+    class_list_3 = ["left", "right", "unknown", "silence"]
+    class_list_4 = ["on", "off", "unknown", "silence"]
+    class_list_5 = ["stop", "go", "unknown", "silence"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -62,6 +62,7 @@ if __name__ == "__main__":
     _, test_loader_2 = get_dataloader(parameters.dpath, class_list_2)
     _, test_loader_3 = get_dataloader(parameters.dpath, class_list_3)
     _, test_loader_4 = get_dataloader(parameters.dpath, class_list_4)
+    _, test_loader_5 = get_dataloader(parameters.dpath, class_list_5)
     # Task 1
     Trainer(parameters, class_list_1, tag='task1', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
@@ -90,3 +91,15 @@ if __name__ == "__main__":
     Evaluator(model, 't4v3').evaluate(test_loader_3) # t4v3 (train on t4 validate on t3)  
     print(f">>>   Testing Keywords: {class_list_4}")
     Evaluator(model, 't4v4').evaluate(test_loader_4) # t4v4 (train on t4 validate on t4)  
+    # Task 5
+    Trainer(parameters, class_list_5, tag='task5', model=model).model_train()
+    print(f">>>   Testing Keywords: {class_list_1}")
+    Evaluator(model, 't5v1').evaluate(test_loader_1) # t5v1 (train on t5 validate on t1)
+    print(f">>>   Testing Keywords: {class_list_2}")
+    Evaluator(model, 't5v2').evaluate(test_loader_2) # t5v2 (train on t5 validate on t2)  
+    print(f">>>   Testing Keywords: {class_list_3}")
+    Evaluator(model, 't5v3').evaluate(test_loader_3) # t5v3 (train on t5 validate on t3)  
+    print(f">>>   Testing Keywords: {class_list_4}")
+    Evaluator(model, 't5v4').evaluate(test_loader_4) # t5v4 (train on t5 validate on t4) 
+    print(f">>>   Testing Keywords: {class_list_5}")
+    Evaluator(model, 't5v5').evaluate(test_loader_5) # t5v5 (train on t5 validate on t5) 
