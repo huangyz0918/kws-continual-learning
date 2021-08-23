@@ -55,8 +55,8 @@ class Trainer:
         if self.cl_mode == CL_NONE:
             print('>>>  NONE CL MODE')
             self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
-        elif self.cl_mode == CL_REHERSAL:
-            print('>>>  REHERSAL MODE')
+        elif self.cl_mode == CL_REHEARSAL:
+            print('>>>  REHEARSAL MODE')
             self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         elif self.cl_mode == CL_EWC:
             raise NotImplementedError("EWC is not available.")

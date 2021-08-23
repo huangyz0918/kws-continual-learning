@@ -53,4 +53,4 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    Trainer(parameters, class_list, cl_mode=CL_REHERSAL, model=model).model_train()
+    Trainer(parameters, class_list, cl_mode=CL_REHEARSAL, model=model).model_train()

@@ -65,17 +65,17 @@ if __name__ == "__main__":
     _, test_loader_4 = get_dataloader(parameters.dpath, class_list_4)
     _, test_loader_5 = get_dataloader(parameters.dpath, class_list_5)
     # Task 1
-    Trainer(parameters, class_list_1, cl_mode=CL_REHERSAL, tag='task1', model=model).model_train()
+    Trainer(parameters, class_list_1, cl_mode=CL_REHEARSAL, tag='task1', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't1v1').evaluate(test_loader_1) # t1v1 (train on t1 validate on t1)
     # Task 2
-    Trainer(parameters, class_list_2, cl_mode=CL_REHERSAL, tag='task2', model=model).model_train()
+    Trainer(parameters, class_list_2, cl_mode=CL_REHEARSAL, tag='task2', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't2v1').evaluate(test_loader_1) # t2v1 (train on t2 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
     Evaluator(model, 't2v2').evaluate(test_loader_2) # t2v2 (train on t2 validate on t2)
     # Task 3
-    Trainer(parameters, class_list_3, cl_mode=CL_REHERSAL, tag='task3', model=model).model_train()
+    Trainer(parameters, class_list_3, cl_mode=CL_REHEARSAL, tag='task3', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't3v1').evaluate(test_loader_1) # t3v1 (train on t3 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     print(f">>>   Testing Keywords: {class_list_3}")
     Evaluator(model, 't3v3').evaluate(test_loader_3) # t3v3 (train on t3 validate on t3)  
     # Task 4
-    Trainer(parameters, class_list_4, cl_mode=CL_REHERSAL, tag='task4', model=model).model_train()
+    Trainer(parameters, class_list_4, cl_mode=CL_REHEARSAL, tag='task4', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't4v1').evaluate(test_loader_1) # t4v1 (train on t4 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     print(f">>>   Testing Keywords: {class_list_4}")
     Evaluator(model, 't4v4').evaluate(test_loader_4) # t4v4 (train on t4 validate on t4)  
     # Task 5
-    Trainer(parameters, class_list_5, cl_mode=CL_REHERSAL, tag='task5', model=model).model_train()
+    Trainer(parameters, class_list_5, cl_mode=CL_REHEARSAL, tag='task5', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't5v1').evaluate(test_loader_1) # t5v1 (train on t5 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
