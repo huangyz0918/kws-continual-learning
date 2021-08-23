@@ -7,6 +7,7 @@ Example training script of KWS models.
 
 import neptune
 import argparse
+from model.util.constant import *
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer
 
 
@@ -52,4 +53,4 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    Trainer(parameters, class_list, model=model).model_train()
+    Trainer(parameters, class_list, cl_mode=CL_REHERSAL, model=model).model_train()

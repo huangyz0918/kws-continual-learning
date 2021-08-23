@@ -1,2 +1,1 @@
-from .speech_loader import SpeechCommandDataset
-from .task_loader import ContinualKeywordDataset, ContinualNoiseDataset
+from .speech_loader import SpeechCommandDataset, ContinualNoiseDataset

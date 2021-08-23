@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 from .dataloader import SpeechCommandDataset
 from .tc_resnet import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from .util import readlines, parameter_number, prepare_device
+from .util.constant import *
 
 
 def get_dataloader(data_path, class_list, batch_size=1):
@@ -39,8 +40,9 @@ class Trainer:
     """
     The KWS model training class.
     """
-    def __init__(self, opt, class_list, tag=None, model=None):
+    def __init__(self, opt, class_list, cl_mode='NONE', tag=None, model=None):
         self.opt = opt
+        self.tag = tag
         self.epoch = opt.epoch
         self.lr = opt.lr
         self.batch = opt.batch
@@ -48,9 +50,23 @@ class Trainer:
         self.device, self.device_list = prepare_device(opt.gpu)
         self.class_list = class_list
         self.model = model
-        self.tag = tag
+        self.cl_mode = cl_mode
 
-        self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
+        if self.cl_mode == CL_NONE:
+            print('NONE CL MODE')
+            self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
+        elif self.cl_mode == CL_REHERSAL:
+            print('REHERSAL MODE')
+            self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
+        elif self.cl_mode == CL_EWC:
+            raise NotImplementedError("EWC is not available.")
+        elif self.cl_mode == CL_SI:
+            raise NotImplementedError("SI is not available.")
+        elif self.cl_mode == CL_GEM:
+            raise NotImplementedError("GEM is not available.")
+        else:
+            raise NotImplementedError("unknow continual learning mode.") 
+
         self.train_length = len(self.train_dataloader)
         self.valid_length = len(self.valid_dataloader)
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
