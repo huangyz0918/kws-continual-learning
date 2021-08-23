@@ -40,7 +40,7 @@ class Trainer:
     """
     The KWS model training class.
     """
-    def __init__(self, opt, class_list, cl_mode='NONE', tag=None, model=None):
+    def __init__(self, opt, class_list, cl_mode=CL_NONE, tag=None, model=None):
         self.opt = opt
         self.tag = tag
         self.epoch = opt.epoch
@@ -53,10 +53,10 @@ class Trainer:
         self.cl_mode = cl_mode
 
         if self.cl_mode == CL_NONE:
-            print('NONE CL MODE')
+            print('>>>  NONE CL MODE')
             self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         elif self.cl_mode == CL_REHERSAL:
-            print('REHERSAL MODE')
+            print('>>>  REHERSAL MODE')
             self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         elif self.cl_mode == CL_EWC:
             raise NotImplementedError("EWC is not available.")
