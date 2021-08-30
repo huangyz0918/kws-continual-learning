@@ -15,14 +15,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from .dataloader import SpeechCommandDataset
+from .dataloader import SpeechCommandDataset, ContinualNoiseDataset
 from .tc_resnet import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from .util import readlines, parameter_number, prepare_device
 from .util.constant import *
 
 
-def get_dataloader(data_path, class_list, batch_size=1):
+def get_dataloader_keyword(data_path, class_list, batch_size=1):
     """
+    CL task protocol: keyword split.
     To get the GSC data and build the data loader from a list of keywords.
     """
     train_filename = readlines(f"{data_path}/splits/train.txt")
@@ -36,28 +37,43 @@ def get_dataloader(data_path, class_list, batch_size=1):
     return train_dataloader, valid_dataloader
 
 
+def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_db=10):
+    """
+    CL task protocol: noise permutation.
+    To get the GSC data and build the data loader from a list of keywords.
+    """
+    train_filename = readlines(f"{data_path}/splits/train.txt")
+    valid_filename = readlines(f"{data_path}/splits/valid.txt")
+    train_dataset = ContinualNoiseDataset(f"{data_path}/data", train_filename, True, class_list, noise_type, snr_db)
+    valid_dataset = ContinualNoiseDataset(f"{data_path}/data", valid_filename, False, class_list, noise_type, snr_db)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+
+    return train_dataloader, valid_dataloader
+
 class Trainer:
     """
     The KWS model training class.
     """
-    def __init__(self, opt, class_list, cl_mode=CL_NONE, tag=None, model=None):
+    def __init__(self, opt, class_list, train_dataloader, valid_dataloader, cl_mode=CL_NONE, tag=None, model=None):
         self.opt = opt
         self.tag = tag
         self.epoch = opt.epoch
         self.lr = opt.lr
         self.batch = opt.batch
         self.step = opt.step
-        self.device, self.device_list = prepare_device(opt.gpu)
         self.class_list = class_list
         self.model = model
         self.cl_mode = cl_mode
+        self.train_dataloader = train_dataloader
+        self.valid_dataloader = valid_dataloader
+        self.device, self.device_list = prepare_device(opt.gpu)
 
         if self.cl_mode == CL_NONE:
             print('>>>  NONE CL MODE')
-            self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         elif self.cl_mode == CL_REHEARSAL:
             print('>>>  REHEARSAL MODE')
-            self.train_dataloader, self.valid_dataloader = get_dataloader(self.opt.dpath, self.class_list, self.batch)
         elif self.cl_mode == CL_EWC:
             raise NotImplementedError("EWC is not available.")
         elif self.cl_mode == CL_SI:
@@ -148,12 +164,10 @@ class Trainer:
             os.makedirs(save_directory)
 
         if self.loss_name["valid_accuracy"] >= 92.0:
-            torch.save(self.mode.state_dict(),
-                       os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
+            torch.save(self.mode.state_dict(), os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
 
         if (self.epo + 1) % self.opt.freq == 0:
-            torch.save(self.model.state_dict(),
-                       os.path.join(save_directory, "model" + str(self.epoch + 1) + ".pt"))
+            torch.save(self.model.state_dict(), os.path.join(save_directory, "model" + str(self.epoch + 1) + ".pt"))
 
         if (self.epo + 1) == self.epoch:
             torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt"))

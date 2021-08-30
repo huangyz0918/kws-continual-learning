@@ -8,7 +8,7 @@ Example training script of KWS models.
 import neptune
 import argparse
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
-from model import Trainer, Evaluator, get_dataloader
+from model import Trainer, Evaluator, get_dataloader_noise
 
 
 if __name__ == "__main__":
@@ -30,12 +30,7 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "unknown", "silence"]
-    class_list_2 = ["up", "down", "unknown", "silence"]
-    class_list_3 = ["left", "right", "unknown", "silence"]
-    class_list_4 = ["on", "off", "unknown", "silence"]
-    class_list_5 = ["stop", "go", "unknown", "silence"]
-
+    class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
     config = {
         "tc-resnet8": [16, 24, 32, 48],
         "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]}
@@ -45,61 +40,62 @@ if __name__ == "__main__":
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
     neptune.create_experiment(name='kws_model',
-                              tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'],
-                              params=vars(parameters))
+                                tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'noise'],
+                                params=vars(parameters))
 
     if parameters.model == "stft":
         model = STFT_TCResnet(
             filter_length=256, hop_length=129, bins=129,
-            channels=parameters.cha, channel_scale=parameters.scale, num_classes=len(class_list_1))
+            channels=parameters.cha, channel_scale=parameters.scale, num_classes=len(class_list))
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list_1))
+        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list))
     else: 
         model = None
 
-    # load testing dataset
-    _, test_loader_1 = get_dataloader(parameters.dpath, class_list_1)
-    _, test_loader_2 = get_dataloader(parameters.dpath, class_list_2)
-    _, test_loader_3 = get_dataloader(parameters.dpath, class_list_3)
-    _, test_loader_4 = get_dataloader(parameters.dpath, class_list_4)
-    _, test_loader_5 = get_dataloader(parameters.dpath, class_list_5)
+    # load testing dataset: change the noise type, fixed the the SNR value.
+    train_loader_1, test_loader_1 = get_dataloader_noise(parameters.dpath, class_list, batch_size=parameters.batch, noise_type=0, snr_db=10)
+    train_loader_2, test_loader_2 = get_dataloader_noise(parameters.dpath, class_list, batch_size=parameters.batch, noise_type=1, snr_db=10)
+    train_loader_3, test_loader_3 = get_dataloader_noise(parameters.dpath, class_list, batch_size=parameters.batch, noise_type=2, snr_db=10)
+    train_loader_4, test_loader_4 = get_dataloader_noise(parameters.dpath, class_list, batch_size=parameters.batch, noise_type=3, snr_db=10)
+    train_loader_5, test_loader_5 = get_dataloader_noise(parameters.dpath, class_list, batch_size=parameters.batch, noise_type=4, snr_db=10)
+
     # Task 1
-    Trainer(parameters, class_list_1, tag='task1', model=model).model_train()
-    print(f">>>   Testing Keywords: {class_list_1}")
+    Trainer(parameters, class_list, train_loader_1, test_loader_1, tag='task1', model=model).model_train()
+    print(f">>>   Testing Noise Type: 0")
     Evaluator(model, 't1v1').evaluate(test_loader_1) # t1v1 (train on t1 validate on t1)
     # Task 2
-    Trainer(parameters, class_list_2, tag='task2', model=model).model_train()
-    print(f">>>   Testing Keywords: {class_list_1}")
+    Trainer(parameters, class_list, train_loader_2, test_loader_2, tag='task2', model=model).model_train()
+    print(f">>>   Testing Noise Type: 0")
     Evaluator(model, 't2v1').evaluate(test_loader_1) # t2v1 (train on t2 validate on t1)
-    print(f">>>   Testing Keywords: {class_list_2}")
+    print(f">>>   Testing Noise Type: 1")
     Evaluator(model, 't2v2').evaluate(test_loader_2) # t2v2 (train on t2 validate on t2)
     # Task 3
-    Trainer(parameters, class_list_3, tag='task3', model=model).model_train()
-    print(f">>>   Testing Keywords: {class_list_1}")
+    Trainer(parameters, class_list, train_loader_3, test_loader_3, tag='task3', model=model).model_train()
+    print(f">>>   Testing Noise Type: 0")
     Evaluator(model, 't3v1').evaluate(test_loader_1) # t3v1 (train on t3 validate on t1)
-    print(f">>>   Testing Keywords: {class_list_2}")
+    print(f">>>   Testing Noise Type: 1")
     Evaluator(model, 't3v2').evaluate(test_loader_2) # t3v2 (train on t3 validate on t2)  
-    print(f">>>   Testing Keywords: {class_list_3}")
+    print(f">>>   Testing Noise Type: 2")
     Evaluator(model, 't3v3').evaluate(test_loader_3) # t3v3 (train on t3 validate on t3)  
     # Task 4
-    Trainer(parameters, class_list_4, tag='task4', model=model).model_train()
-    print(f">>>   Testing Keywords: {class_list_1}")
+    Trainer(parameters, class_list, train_loader_4, test_loader_4, tag='task4', model=model).model_train()
+    print(f">>>   Testing Noise Type: 0")
     Evaluator(model, 't4v1').evaluate(test_loader_1) # t4v1 (train on t4 validate on t1)
-    print(f">>>   Testing Keywords: {class_list_2}")
+    print(f">>>   Testing Noise Type: 1")
     Evaluator(model, 't4v2').evaluate(test_loader_2) # t4v2 (train on t4 validate on t2)  
-    print(f">>>   Testing Keywords: {class_list_3}")
+    print(f">>>   Testing Noise Type: 2")
     Evaluator(model, 't4v3').evaluate(test_loader_3) # t4v3 (train on t4 validate on t3)  
-    print(f">>>   Testing Keywords: {class_list_4}")
+    print(f">>>   Testing Noise Type: 3")
     Evaluator(model, 't4v4').evaluate(test_loader_4) # t4v4 (train on t4 validate on t4)  
     # Task 5
-    Trainer(parameters, class_list_5, tag='task5', model=model).model_train()
-    print(f">>>   Testing Keywords: {class_list_1}")
+    Trainer(parameters, class_list, train_loader_5, test_loader_5, tag='task5', model=model).model_train()
+    print(f">>>   Testing Noise Type: 0")
     Evaluator(model, 't5v1').evaluate(test_loader_1) # t5v1 (train on t5 validate on t1)
-    print(f">>>   Testing Keywords: {class_list_2}")
+    print(f">>>   Testing Noise Type: 1")
     Evaluator(model, 't5v2').evaluate(test_loader_2) # t5v2 (train on t5 validate on t2)  
-    print(f">>>   Testing Keywords: {class_list_3}")
+    print(f">>>   Testing Noise Type: 2")
     Evaluator(model, 't5v3').evaluate(test_loader_3) # t5v3 (train on t5 validate on t3)  
-    print(f">>>   Testing Keywords: {class_list_4}")
+    print(f">>>   Testing Noise Type: 3")
     Evaluator(model, 't5v4').evaluate(test_loader_4) # t5v4 (train on t5 validate on t4) 
-    print(f">>>   Testing Keywords: {class_list_5}")
+    print(f">>>   Testing Noise Type: 4")
     Evaluator(model, 't5v5').evaluate(test_loader_5) # t5v5 (train on t5 validate on t5) 

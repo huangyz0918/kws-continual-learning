@@ -8,7 +8,7 @@ Example training script of KWS models.
 import neptune
 import argparse
 from model.util.constant import *
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer, get_dataloader_keyword
 
 
 if __name__ == "__main__":
@@ -40,9 +40,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model',
-                              tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'],
-                              params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'], params=vars(parameters))
 
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -53,4 +51,5 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    Trainer(parameters, class_list, cl_mode=CL_REHEARSAL, model=model).model_train()
+    train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, parameters.batch)
+    Trainer(parameters, class_list, train_loader, test_loader, cl_mode=CL_NONE, model=model).model_train()

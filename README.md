@@ -29,6 +29,8 @@ cd <ROOT>/dataset
 bash download_gsc.sh
 ```
 
+Note: to run the `download_gsc.sh` in macOS, please run `brew install coreutils` to install `realpath` first.
+
 ### Start Training
 
 We use [Neptune](https://app.neptune.ai/) to log the training process, please setup the logging configuration in the `train.py`.
