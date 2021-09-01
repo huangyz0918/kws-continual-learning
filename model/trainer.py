@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from .dataloader import SpeechCommandDataset, ContinualNoiseDataset
+from .dataloader import SpeechCommandDataset, ContinualNoiseDataset, RehearsalDataset
 from .tc_resnet import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from .util import readlines, parameter_number, prepare_device
 from .util.constant import *
@@ -33,7 +33,23 @@ def get_dataloader_keyword(data_path, class_list, batch_size=1):
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    return train_dataloader, valid_dataloader
 
+
+def get_dataloader_replay(data_path, class_list, replay_list, replay_ratio, batch_size=1):
+    """
+    CL task protocol: keyword split.
+    To get the data mixed with rehearsal data to overcome the catastrophic forgetting.
+    """
+    train_filename = readlines(f"{data_path}/splits/train.txt")
+    valid_filename = readlines(f"{data_path}/splits/valid.txt")
+    train_dataset = RehearsalDataset(f"{data_path}/data", train_filename,
+                                        True, class_list, replay_list, replay_ratio=replay_ratio)
+    valid_dataset = RehearsalDataset(f"{data_path}/data", valid_filename, 
+                                        False, class_list, replay_list, replay_ratio=replay_ratio)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     return train_dataloader, valid_dataloader
 
 
@@ -49,7 +65,6 @@ def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-
     return train_dataloader, valid_dataloader
 
 class Trainer:
@@ -65,23 +80,9 @@ class Trainer:
         self.step = opt.step
         self.class_list = class_list
         self.model = model
-        self.cl_mode = cl_mode
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
         self.device, self.device_list = prepare_device(opt.gpu)
-
-        if self.cl_mode == CL_NONE:
-            print('>>>  NONE CL MODE')
-        elif self.cl_mode == CL_REHEARSAL:
-            print('>>>  REHEARSAL MODE')
-        elif self.cl_mode == CL_EWC:
-            raise NotImplementedError("EWC is not available.")
-        elif self.cl_mode == CL_SI:
-            raise NotImplementedError("SI is not available.")
-        elif self.cl_mode == CL_GEM:
-            raise NotImplementedError("GEM is not available.")
-        else:
-            raise NotImplementedError("unknow continual learning mode.") 
 
         self.train_length = len(self.train_dataloader)
         self.valid_length = len(self.valid_dataloader)
@@ -93,13 +94,12 @@ class Trainer:
             if self.opt.model == "stft":
                 self.model = STFT_TCResnet(
                     filter_length=256, hop_length=129, bins=129,
-                    channels=self.opt.cha, channel_scale=self.opt.scale, num_classes=len(train_dataset.classes)).to(self.device)
+                    channels=self.opt.cha, channel_scale=self.opt.scale, num_classes=len(self.class_list)).to(self.device)
             elif self.opt.model == "mfcc":
                 self.model = MFCC_TCResnet(
-                    bins=40, channel_scale=self.opt.scale, num_classes=len(train_dataset.classes)).to(self.device)
+                    bins=40, channel_scale=self.opt.scale, num_classes=len(self.class_list)).to(self.device)
         else:
             self.model.to(self.device)
-
         print(f">>>   Num of model parameters: {parameter_number(self.model)}")
 
         # enable multi GPU training.
@@ -165,7 +165,7 @@ class Trainer:
         if not os.path.isdir(save_directory):
             os.makedirs(save_directory)
 
-        if self.loss_name["valid_accuracy"] >= 92.0:
+        if self.loss_name["valid_accuracy"] >= 90.0:
             torch.save(self.mode.state_dict(), os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
 
         if (self.epo + 1) % self.opt.freq == 0:

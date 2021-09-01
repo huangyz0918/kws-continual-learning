@@ -7,9 +7,10 @@ Replay the historical data to overcome catastrophic forgetting.
 
 import neptune
 import argparse
+import torch.nn as nn
 from model.util.constant import *
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
-from model import Trainer, Evaluator, get_dataloader_keyword
+from model import Trainer, Evaluator, get_dataloader_keyword, get_dataloader_replay
 
 
 if __name__ == "__main__":
@@ -47,21 +48,36 @@ if __name__ == "__main__":
     neptune.init('huangyz0918/kws')
     neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
 
+    # build a multi-head setting for learning process.
+    total_class_list = []
+    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
+    for x in learning_tasks:
+        total_class_list += x
+    total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
+    
     if parameters.model == "stft":
         model = STFT_TCResnet(
             filter_length=256, hop_length=129, bins=129,
-            channels=parameters.cha, channel_scale=parameters.scale, num_classes=len(class_list_1))
+            channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list_1))
+        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
     else: 
         model = None
 
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
+    # start continuous learning.
+    learned_class_list = learning_tasks[0]
     for task_id, task_class in enumerate(learning_tasks):
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, parameters.batch)
-        model = Trainer(parameters, task_class, train_loader, test_loader,
-                        cl_mode=CL_NONE, tag=f'task{task_id}', model=model).model_train()
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, batch_size=parameters.batch)
+        # record the learned keywords.
+        if task_id > 0:
+            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, 
+                                                                replay_ratio=0.5, batch_size=parameters.batch)
+            learned_class_list = learned_class_list[:-2] + task_class
+        print(f">>>   Learned Class: {learned_class_list}")
         print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+        # fine-tune the whole model.
+        model = Trainer(parameters, task_class, train_loader, test_loader,
+                        cl_mode=CL_REHEARSAL, tag=f'task{task_id}', model=model).model_train()
         for val_id in range(task_id + 1):
             _, test_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], parameters.batch)
-            Evaluator(model, f't{task_id}v{val_id}').evaluate(test_loader) 
+            Evaluator(model, f't{task_id}v{val_id}').evaluate(test_loader)

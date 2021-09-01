@@ -99,8 +99,8 @@ class RehearsalDataset(Dataset):
         self.datapath = datapath
         self.filename = filename
         self.is_training = is_training
-        self.class_encoding = {category: index for index, category in enumerate(self.classes)}
-        self.replay_class_encoding = {category: index for index, category in enumerate(self.replay_class_list)}
+        concated_list = self.classes + self.replay_class_list
+        self.class_encoding = {category: index for index, category in enumerate([i for j, i in enumerate(concated_list) if i not in (concated_list)[:j]])}
         self.speech_dataset, self.replay_dataset = self.combined_path()
 
     def combined_path(self):
@@ -108,13 +108,21 @@ class RehearsalDataset(Dataset):
         replay_data_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
+
+            # load the rehearsal data.
+            if category in self.replay_class_list[:-2]:
+                path = os.path.join(self.datapath, category, wave_name)
+                replay_data_list.append([path, category])
+            elif category == "_silence_":
+                replay_data_list.append(["silence", "silence"])
+            else:
+                path = os.path.join(self.datapath, category, wave_name)
+                replay_data_list.append([path, "unknown"])
+
+            # load the training data.
             if category in self.classes[:-2]:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
-                # load the rehearsal data.
-                if category in self.replay_class_list[:-2]:
-                    path = os.path.join(self.datapath, category, wave_name)
-                    replay_data_list.append([path, category])
             elif category == "_silence_":
                 dataset_list.append(["silence", "silence"])
             else:
@@ -146,15 +154,15 @@ class RehearsalDataset(Dataset):
 
     def __getitem__(self, index):
         train_data_length = len(self.speech_dataset)
-        if self.replay_ratio >= 0:
-            if index % (1 / self.replay_ratio) == 0:
-                print("**********")
+        if self.replay_ratio > 0:
+            if index % (1 / self.replay_ratio) == 0 and self.is_training:
                 speech_path = self.replay_dataset[index][0]
                 speech_category = self.replay_dataset[index][1]
             else:
-                print("----------")
                 speech_path = self.speech_dataset[index][0]
                 speech_category = self.speech_dataset[index][1]
+        else:
+            raise ValueError("the replay data ratio should be a number bigger than 0.")
         label = self.one_hot(speech_category)
 
         if speech_path == "silence":
