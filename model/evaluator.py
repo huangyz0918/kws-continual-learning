@@ -10,8 +10,9 @@ from tqdm import tqdm
 
 
 class Evaluator:
-    def __init__(self, model, tag=None):
+    def __init__(self, model, class_list=None, tag=None):
         self.tag = tag
+        self.class_list = class_list
         self.device = torch.device('cpu')
         self.model = model.to(self.device)
         self.log_data =  {"test_accuracy": 0, "test_total": 0, "test_correct": 0}
@@ -29,6 +30,7 @@ class Evaluator:
                 self.log_data["test_accuracy"] = self.log_data["test_correct"] / self.log_data["test_total"]
 
         neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
-        print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
-
-    
+        if self.class_list:
+            print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
+        else:
+            print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')

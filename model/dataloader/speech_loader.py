@@ -85,6 +85,85 @@ class SpeechCommandDataset(Dataset):
         return waveform, label
 
 
+class RehearsalDataset(Dataset):
+    def __init__(self, datapath, filename, is_training, class_list, replay_class_list, replay_ratio=0.1):
+        super(RehearsalDataset, self).__init__()
+        """
+            Replay the historical data to overcome forgetting issue.
+        """
+        self.classes = class_list
+        self.replay_class_list = replay_class_list
+        self.replay_ratio = replay_ratio
+        self.sampling_rate = 16000
+        self.sample_length = 16000
+        self.datapath = datapath
+        self.filename = filename
+        self.is_training = is_training
+        self.class_encoding = {category: index for index, category in enumerate(self.classes)}
+        self.replay_class_encoding = {category: index for index, category in enumerate(self.replay_class_list)}
+        self.speech_dataset, self.replay_dataset = self.combined_path()
+
+    def combined_path(self):
+        dataset_list = []
+        replay_data_list = []
+        for path in self.filename:
+            category, wave_name = path.split("/")
+            if category in self.classes[:-2]:
+                path = os.path.join(self.datapath, category, wave_name)
+                dataset_list.append([path, category])
+                # load the rehearsal data.
+                if category in self.replay_class_list[:-2]:
+                    path = os.path.join(self.datapath, category, wave_name)
+                    replay_data_list.append([path, category])
+            elif category == "_silence_":
+                dataset_list.append(["silence", "silence"])
+            else:
+                path = os.path.join(self.datapath, category, wave_name)
+                dataset_list.append([path, "unknown"])
+        return dataset_list, replay_data_list
+
+    def load_audio(self, speech_path):
+        waveform, sr = torchaudio.load(speech_path)
+        if waveform.shape[1] < self.sample_length:
+            # padding if the audio length is smaller than samping length.
+            waveform = F.pad(waveform, [0, self.sample_length - waveform.shape[1]])
+        else:
+            pass
+
+        if self.is_training == True:
+            pad_length = int(waveform.shape[1] * 0.1)
+            waveform = F.pad(waveform, [pad_length, pad_length])
+            offset = torch.randint(0, waveform.shape[1] - self.sample_length + 1, size=(1,)).item()
+            waveform = waveform.narrow(1, offset, self.sample_length)
+        return waveform
+
+    def one_hot(self, speech_category):
+        encoding = self.class_encoding[speech_category]
+        return encoding
+
+    def __len__(self):
+        return len(self.speech_dataset)
+
+    def __getitem__(self, index):
+        train_data_length = len(self.speech_dataset)
+        if self.replay_ratio >= 0:
+            if index % (1 / self.replay_ratio) == 0:
+                print("**********")
+                speech_path = self.replay_dataset[index][0]
+                speech_category = self.replay_dataset[index][1]
+            else:
+                print("----------")
+                speech_path = self.speech_dataset[index][0]
+                speech_category = self.speech_dataset[index][1]
+        label = self.one_hot(speech_category)
+
+        if speech_path == "silence":
+            waveform = torch.zeros(1, self.sampling_rate)
+        else:
+            waveform = self.load_audio(speech_path)
+
+        return waveform, label
+
 class ContinualNoiseDataset(Dataset):
     """
     FIXME:

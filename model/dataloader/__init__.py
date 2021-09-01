@@ -1,1 +1,1 @@
-from .speech_loader import SpeechCommandDataset, ContinualNoiseDataset
+from .speech_loader import SpeechCommandDataset, ContinualNoiseDataset, RehearsalDataset
