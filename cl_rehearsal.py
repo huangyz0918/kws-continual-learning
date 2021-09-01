@@ -45,9 +45,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model',
-                              tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'],
-                              params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'], params=vars(parameters))
 
     if parameters.model == "stft":
         model = STFT_TCResnet(

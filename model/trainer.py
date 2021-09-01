@@ -157,6 +157,8 @@ class Trainer:
             neptune.log_metric(f'{self.tag}-val_loss', self.loss_name["valid_loss"])
             neptune.log_metric(f'{self.tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
             neptune.log_metric(f'{self.tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+            
+        return self.model
 
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)

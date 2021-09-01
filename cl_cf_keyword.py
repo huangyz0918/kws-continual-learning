@@ -7,6 +7,7 @@ Example training script of KWS models.
 
 import neptune
 import argparse
+from model.util.constant import *
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from model import Trainer, Evaluator, get_dataloader_keyword
 
@@ -16,7 +17,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--batch", default=256, type=int, help="Training batch size")
+        parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
@@ -44,7 +45,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'keyword'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
 
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -56,23 +57,27 @@ if __name__ == "__main__":
         model = None
 
     # load testing dataset
-    train_loader_1, test_loader_1 = get_dataloader_keyword(parameters.dpath, class_list_1)
-    train_loader_2, test_loader_2 = get_dataloader_keyword(parameters.dpath, class_list_2)
-    train_loader_3, test_loader_3 = get_dataloader_keyword(parameters.dpath, class_list_3)
-    train_loader_4, test_loader_4 = get_dataloader_keyword(parameters.dpath, class_list_4)
-    train_loader_5, test_loader_5 = get_dataloader_keyword(parameters.dpath, class_list_5)
+    train_loader_1, test_loader_1 = get_dataloader_keyword(parameters.dpath, class_list_1, parameters.batch)
+    train_loader_2, test_loader_2 = get_dataloader_keyword(parameters.dpath, class_list_2, parameters.batch)
+    train_loader_3, test_loader_3 = get_dataloader_keyword(parameters.dpath, class_list_3, parameters.batch)
+    train_loader_4, test_loader_4 = get_dataloader_keyword(parameters.dpath, class_list_4, parameters.batch)
+    train_loader_5, test_loader_5 = get_dataloader_keyword(parameters.dpath, class_list_5, parameters.batch)
+    
     # Task 1
-    Trainer(parameters, class_list_1, train_loader_1, test_loader_1, tag='task1', model=model).model_train()
+    model = Trainer(parameters, class_list_1, train_loader_1,
+                    test_loader_1, cl_mode=CL_NONE, tag='task1', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't1v1').evaluate(test_loader_1) # t1v1 (train on t1 validate on t1)
     # Task 2
-    Trainer(parameters, class_list_2, train_loader_2, test_loader_2, tag='task2', model=model).model_train()
+    model = Trainer(parameters, class_list_2, train_loader_2,  
+                    test_loader_2, cl_mode=CL_NONE, tag='task2', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't2v1').evaluate(test_loader_1) # t2v1 (train on t2 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
     Evaluator(model, 't2v2').evaluate(test_loader_2) # t2v2 (train on t2 validate on t2)
     # Task 3
-    Trainer(parameters, class_list_3, train_loader_3, test_loader_3, tag='task3', model=model).model_train()
+    model = Trainer(parameters, class_list_3, train_loader_3, 
+                    test_loader_3, cl_mode=CL_NONE, tag='task3', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't3v1').evaluate(test_loader_1) # t3v1 (train on t3 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
@@ -80,7 +85,8 @@ if __name__ == "__main__":
     print(f">>>   Testing Keywords: {class_list_3}")
     Evaluator(model, 't3v3').evaluate(test_loader_3) # t3v3 (train on t3 validate on t3)  
     # Task 4
-    Trainer(parameters, class_list_4, train_loader_4, test_loader_4, tag='task4', model=model).model_train()
+    model = Trainer(parameters, class_list_4, train_loader_4, 
+                    test_loader_4, cl_mode=CL_NONE, tag='task4', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't4v1').evaluate(test_loader_1) # t4v1 (train on t4 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
@@ -90,7 +96,8 @@ if __name__ == "__main__":
     print(f">>>   Testing Keywords: {class_list_4}")
     Evaluator(model, 't4v4').evaluate(test_loader_4) # t4v4 (train on t4 validate on t4)  
     # Task 5
-    Trainer(parameters, class_list_5, train_loader_5, test_loader_5, tag='task5', model=model).model_train()
+    model = Trainer(parameters, class_list_5, train_loader_5, 
+                    test_loader_5, cl_mode=CL_NONE, tag='task5', model=model).model_train()
     print(f">>>   Testing Keywords: {class_list_1}")
     Evaluator(model, 't5v1').evaluate(test_loader_1) # t5v1 (train on t5 validate on t1)
     print(f">>>   Testing Keywords: {class_list_2}")
