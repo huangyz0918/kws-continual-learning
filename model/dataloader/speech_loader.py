@@ -111,9 +111,9 @@ class RehearsalDataset(Dataset):
         for path in self.filename:
             category, wave_name = path.split("/")
             # load the training data.
-            if category == "_silence_":
+            if category in self.classes and category == "_silence_":
                 dataset_list.append(["silence", "silence"])
-            elif category in self.classes:
+            if category in self.classes:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
             # else:
@@ -122,10 +122,10 @@ class RehearsalDataset(Dataset):
             #     dataset_list.append([path, "unknown"])
 
             # load the replay data.
-            # we don't replay the 'unknown' data in continual learning.
-            if category == "_silence_":
-                replay_data_list.append(["silence", "silence"])
-            elif category in self.replay_class_list:
+            # we don't replay the 'unknown' and 'silence' data in continual learning.
+            # if category == "_silence_":
+            #     replay_data_list.append(["silence", "silence"])
+            if category in self.replay_class_list:
                 # only replay the data outside the current learning task.
                 if category not in self.classes:
                     path = os.path.join(self.datapath, category, wave_name)

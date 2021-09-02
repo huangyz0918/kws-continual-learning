@@ -33,11 +33,11 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "silence"]
-    class_list_2 = ["up", "down", "wow", "happy"]
-    class_list_3 = ["left", "right", "seven", "six"]
-    class_list_4 = ["on", "off", "house", "zero"]
-    class_list_5 = ["stop", "go", "dog", "cat"]
+    class_list_1 = ["yes", "no", "nine", "three", "bed"]
+    class_list_2 = ["up", "down", "wow", "happy", "four"]
+    class_list_3 = ["left", "right", "seven", "six", "marvin"]
+    class_list_4 = ["on", "off", "house", "zero", "sheila"]
+    class_list_5 = ["stop", "go", "dog", "cat", "two"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -77,7 +77,10 @@ if __name__ == "__main__":
         model = Trainer(parameters, task_class, train_loader, test_loader,
                         cl_mode=CL_REHEARSAL, tag=f'task{task_id}', model=model).model_train()
         # the task evaluation.
+        total_acc = 0
         for val_id in range(task_id + 1):
             _, val_loader = get_dataloader_replay(parameters.dpath, learning_tasks[val_id], learned_class_list)
             log_data = Evaluator(model, f't{task_id}v{val_id}').evaluate(val_loader)
             neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
+            total_acc += log_data["test_accuracy"]
+        print(f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}")
