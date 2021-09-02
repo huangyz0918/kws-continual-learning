@@ -34,3 +34,5 @@ class Evaluator:
             print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
         else:
             print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
+            
+        return self.log_data

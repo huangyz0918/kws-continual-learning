@@ -22,6 +22,7 @@ if __name__ == "__main__":
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
+        parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
@@ -32,11 +33,11 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "unknown", "silence"]
-    class_list_2 = ["up", "down", "unknown", "silence"]
-    class_list_3 = ["left", "right", "unknown", "silence"]
-    class_list_4 = ["on", "off", "unknown", "silence"]
-    class_list_5 = ["stop", "go", "unknown", "silence"]
+    class_list_1 = ["yes", "no", "nine", "silence"]
+    class_list_2 = ["up", "down", "wow", "happy"]
+    class_list_3 = ["left", "right", "seven", "six"]
+    class_list_4 = ["on", "off", "house", "zero"]
+    class_list_5 = ["stop", "go", "dog", "cat"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -55,6 +56,7 @@ if __name__ == "__main__":
         total_class_list += x
     total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
     
+    # load the model.
     if parameters.model == "stft":
         model = STFT_TCResnet(
             filter_length=256, hop_length=129, bins=129,
@@ -64,20 +66,18 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    # start continuous learning.
-    learned_class_list = learning_tasks[0]
+    # continuous learning.
+    learned_class_list = []
     for task_id, task_class in enumerate(learning_tasks):
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, batch_size=parameters.batch)
-        # record the learned keywords.
-        if task_id > 0:
-            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, 
-                                                                replay_ratio=0.5, batch_size=parameters.batch)
-            learned_class_list = learned_class_list[:-2] + task_class
-        print(f">>>   Learned Class: {learned_class_list}")
-        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+        print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
+        learned_class_list += task_class
+        train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, 
+                                                            replay_ratio=parameters.ratio, batch_size=parameters.batch)
         # fine-tune the whole model.
         model = Trainer(parameters, task_class, train_loader, test_loader,
                         cl_mode=CL_REHEARSAL, tag=f'task{task_id}', model=model).model_train()
+        # the task evaluation.
         for val_id in range(task_id + 1):
-            _, test_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], parameters.batch)
-            Evaluator(model, f't{task_id}v{val_id}').evaluate(test_loader)
+            _, val_loader = get_dataloader_replay(parameters.dpath, learning_tasks[val_id], learned_class_list)
+            log_data = Evaluator(model, f't{task_id}v{val_id}').evaluate(val_loader)
+            neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])

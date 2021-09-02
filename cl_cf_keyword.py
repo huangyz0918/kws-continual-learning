@@ -33,10 +33,10 @@ if __name__ == "__main__":
         return args
 
     class_list_1 = ["yes", "no", "unknown", "silence"]
-    class_list_2 = ["up", "down", "unknown", "silence"]
-    class_list_3 = ["left", "right", "unknown", "silence"]
-    class_list_4 = ["on", "off", "unknown", "silence"]
-    class_list_5 = ["stop", "go", "unknown", "silence"]
+    class_list_2 = ["up", "down", "wow", "zero"]
+    class_list_3 = ["left", "right", "seven", "six"]
+    class_list_4 = ["on", "off", "house", "happy"]
+    class_list_5 = ["stop", "go", "dog", "cat"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -65,12 +65,14 @@ if __name__ == "__main__":
         model = None
 
     # start continuous learning.
+    learned_class_list = []
     for task_id, task_class in enumerate(learning_tasks):
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, parameters.batch)
+        learned_class_list += task_class
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, learned_class_list, parameters.batch)
         print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
         # fine-tune the whole model.
         model = Trainer(parameters, task_class, train_loader, test_loader,
                         cl_mode=CL_NONE, tag=f'task{task_id}', model=model).model_train()
         for val_id in range(task_id + 1):
-            _, test_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], parameters.batch)
+            _, test_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], learned_class_list, parameters.batch)
             Evaluator(model, f't{task_id}v{val_id}').evaluate(test_loader)

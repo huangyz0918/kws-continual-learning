@@ -21,22 +21,24 @@ from .util import readlines, parameter_number, prepare_device
 from .util.constant import *
 
 
-def get_dataloader_keyword(data_path, class_list, batch_size=1):
+def get_dataloader_keyword(data_path, class_list, learned_class_list, batch_size=1):
     """
     CL task protocol: keyword split.
     To get the GSC data and build the data loader from a list of keywords.
     """
     train_filename = readlines(f"{data_path}/splits/train.txt")
     valid_filename = readlines(f"{data_path}/splits/valid.txt")
-    train_dataset = SpeechCommandDataset(f"{data_path}/data", train_filename, True, class_list)
-    valid_dataset = SpeechCommandDataset(f"{data_path}/data", valid_filename, False, class_list)
+    train_dataset = SpeechCommandDataset(f"{data_path}/data", train_filename,
+                                            True, class_list, learned_class_list)
+    valid_dataset = SpeechCommandDataset(f"{data_path}/data", valid_filename,
+                                            False, class_list, learned_class_list)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     return train_dataloader, valid_dataloader
 
 
-def get_dataloader_replay(data_path, class_list, replay_list, replay_ratio, batch_size=1):
+def get_dataloader_replay(data_path, class_list, replay_list, replay_ratio=0.1, batch_size=1):
     """
     CL task protocol: keyword split.
     To get the data mixed with rehearsal data to overcome the catastrophic forgetting.
@@ -87,8 +89,8 @@ class Trainer:
         self.train_length = len(self.train_dataloader)
         self.valid_length = len(self.valid_dataloader)
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
-        print(">>>   Train length: {}, Valid length: {}, Batch size: {}".format(self.train_length, self.valid_length, self.batch))
-        print(f">>>   Training Keywords: {self.class_list}")
+        # print(">>>   Train length: {}, Valid length: {}, Batch size: {}".format(self.train_length, self.valid_length, self.batch))
+        # print(f">>>   Training Keywords: {self.class_list}")
 
         if self.model is None:
             if self.opt.model == "stft":
@@ -100,7 +102,7 @@ class Trainer:
                     bins=40, channel_scale=self.opt.scale, num_classes=len(self.class_list)).to(self.device)
         else:
             self.model.to(self.device)
-        print(f">>>   Num of model parameters: {parameter_number(self.model)}")
+        # print(f">>>   Num of model parameters: {parameter_number(self.model)}")
 
         # enable multi GPU training.
         if len(self.device_list) > 1:

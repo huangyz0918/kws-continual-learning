@@ -51,5 +51,6 @@ if __name__ == "__main__":
     else: 
         model = None
 
-    train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, parameters.batch)
+    learned_class_list = class_list
+    train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, learned_class_list, parameters.batch)
     Trainer(parameters, class_list, train_loader, test_loader, cl_mode=CL_NONE, model=model).model_train()

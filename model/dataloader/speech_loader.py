@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from .util import snr_noise
 
 class SpeechCommandDataset(Dataset):
-    def __init__(self, datapath, filename, is_training, class_list):
+    def __init__(self, datapath, filename, is_training, class_list, learned_class_list):
         super(SpeechCommandDataset, self).__init__()
         """
         Args:
@@ -27,24 +27,26 @@ class SpeechCommandDataset(Dataset):
             is_training: True or False
         """
         self.classes = class_list
+        self.learned_classes = learned_class_list # learned class list should contain the classes in the current task.
         self.sampling_rate = 16000
         self.sample_length = 16000
         self.datapath = datapath
         self.filename = filename
         self.is_training = is_training
-        self.class_encoding = {category: index for index, category in enumerate(self.classes)}
+        self.class_encoding = {category: index for index, category in enumerate(self.learned_classes)}
         self.speech_dataset = self.combined_path()
 
     def combined_path(self):
         dataset_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
-            if category in self.classes[:-2]:
+            if category == "_silence_":
+                dataset_list.append(["silence", "silence"])
+            elif category in self.classes:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
-            elif category == "_silence_":
-                dataset_list.append(["silence", "silence"])
             else:
+                # remove the 'unknow' class if you want to check the catastrophic foretting.
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, "unknown"])
         return dataset_list
@@ -99,8 +101,8 @@ class RehearsalDataset(Dataset):
         self.datapath = datapath
         self.filename = filename
         self.is_training = is_training
-        concated_list = self.classes + self.replay_class_list
-        self.class_encoding = {category: index for index, category in enumerate([i for j, i in enumerate(concated_list) if i not in (concated_list)[:j]])}
+        # remove the duplicated keywords.
+        self.class_encoding = {category: index for index, category in enumerate(self.replay_class_list)}
         self.speech_dataset, self.replay_dataset = self.combined_path()
 
     def combined_path(self):
@@ -108,26 +110,27 @@ class RehearsalDataset(Dataset):
         replay_data_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
-
-            # load the rehearsal data.
-            if category in self.replay_class_list[:-2]:
-                path = os.path.join(self.datapath, category, wave_name)
-                replay_data_list.append([path, category])
-            elif category == "_silence_":
-                replay_data_list.append(["silence", "silence"])
-            else:
-                path = os.path.join(self.datapath, category, wave_name)
-                replay_data_list.append([path, "unknown"])
-
             # load the training data.
-            if category in self.classes[:-2]:
+            if category == "_silence_":
+                dataset_list.append(["silence", "silence"])
+            elif category in self.classes:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
-            elif category == "_silence_":
-                dataset_list.append(["silence", "silence"])
-            else:
-                path = os.path.join(self.datapath, category, wave_name)
-                dataset_list.append([path, "unknown"])
+            # else:
+            #     # remove the 'unknow' class if you want to check the catastrophic foretting.
+            #     path = os.path.join(self.datapath, category, wave_name)
+            #     dataset_list.append([path, "unknown"])
+
+            # load the replay data.
+            # we don't replay the 'unknown' data in continual learning.
+            if category == "_silence_":
+                replay_data_list.append(["silence", "silence"])
+            elif category in self.replay_class_list:
+                # only replay the data outside the current learning task.
+                if category not in self.classes:
+                    path = os.path.join(self.datapath, category, wave_name)
+                    replay_data_list.append([path, category])
+
         return dataset_list, replay_data_list
 
     def load_audio(self, speech_path):
@@ -153,16 +156,18 @@ class RehearsalDataset(Dataset):
         return len(self.speech_dataset)
 
     def __getitem__(self, index):
-        train_data_length = len(self.speech_dataset)
-        if self.replay_ratio > 0:
-            if index % (1 / self.replay_ratio) == 0 and self.is_training:
-                speech_path = self.replay_dataset[index][0]
-                speech_category = self.replay_dataset[index][1]
+        # randomly pick the historical data point at a frequency.
+        if self.replay_ratio > 0 and len(self.replay_dataset) > 0:
+            if self.is_training and index % (1 / self.replay_ratio) == 0:
+                random_replay_data = random.choice(self.replay_dataset)
+                speech_path = random_replay_data[0]
+                speech_category = random_replay_data[1]
             else:
                 speech_path = self.speech_dataset[index][0]
                 speech_category = self.speech_dataset[index][1]
         else:
-            raise ValueError("the replay data ratio should be a number bigger than 0.")
+            speech_path = self.speech_dataset[index][0]
+            speech_category = self.speech_dataset[index][1]
         label = self.one_hot(speech_category)
 
         if speech_path == "silence":
