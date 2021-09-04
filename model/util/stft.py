@@ -11,7 +11,7 @@ from librosa.util import tiny
 
 
 def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
-                     n_fft=800, dtype=np.float32, norm=None):
+                        n_fft=800, dtype=np.float32, norm=None):
     """
     # from librosa 0.6
     Compute the sum-square envelope of a window function at a given hop length.
@@ -196,7 +196,7 @@ class InverseSTFT(nn.Module):
 
         recombine_magnitude_phase = torch.cat([magnitude * torch.cos(phase), magnitude * torch.sin(phase)], dim=1)
         inverse_transform = F.conv_transpose1d(recombine_magnitude_phase, self.inverse_basis, stride=self.hop_length,
-                                               padding=0)
+                                                padding=0)
 
         if self.window is not None:
             window_sum = window_sumsquare(

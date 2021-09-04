@@ -17,6 +17,24 @@ from torchaudio.transforms import MFCC
 from .util import STFT
 
 
+
+class MLP(nn.Module):
+    def __init__(self, hop_length, audio_time, n_class):
+        super().__init__()
+                
+        self.input_fc = nn.Linear(hop_length * audio_time, 250)
+        self.hidden_fc = nn.Linear(250, 100)
+        self.output_fc = nn.Linear(100, n_class)
+        
+    def forward(self, inputs):
+        batch_size = inputs.shape[0]
+        inputs = inputs.view(batch_size, -1)
+        h_1 = F.relu(self.input_fc(inputs))
+        h_2 = F.relu(self.hidden_fc(h_1))
+        out = self.output_fc(h_2)
+        return out
+
+
 class Residual(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Residual, self).__init__()
@@ -130,4 +148,27 @@ class MFCC_TCResnet(nn.Module):
     def forward(self, waveform):
         mel_sepctogram = self.mfcc_layer(waveform)
         logits = self.tc_resnet(mel_sepctogram)
+        return logits
+
+
+class STFT_MLP(nn.Module):
+    def __init__(self, filter_length, hop_length, bins, num_classes):
+        super(STFT_MLP, self).__init__()
+        sampling_rate = 16000
+        self.bins = bins
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.num_classes = num_classes
+
+        self.stft_layer = STFT(self.filter_length, self.hop_length)
+        self.mlp = MLP(self.bins, 125, self.num_classes)
+
+    def __spectrogram__(self, real, imag):
+        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
+        return spectrogram
+
+    def forward(self, waveform):
+        real, imag = self.stft_layer(waveform)
+        spectrogram = self.__spectrogram__(real, imag)
+        logits = self.mlp(spectrogram)
         return logits

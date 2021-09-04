@@ -8,7 +8,8 @@ Example training script of KWS models.
 import neptune
 import argparse
 from model.util.constant import *
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer, get_dataloader_keyword
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
+from model import Trainer, get_dataloader_keyword
 
 
 if __name__ == "__main__":
@@ -48,7 +49,9 @@ if __name__ == "__main__":
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=len(class_list))
     elif parameters.model == "mfcc":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list))
-    else: 
+    elif parameters.model == "stft-mlp":
+        model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list))
+    else:
         model = None
 
     learned_class_list = class_list

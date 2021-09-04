@@ -9,7 +9,7 @@ import neptune
 import argparse
 import torch.nn as nn
 from model.util.constant import *
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
 from model import Trainer, Evaluator, get_dataloader_keyword, get_dataloader_replay
 
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
         parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
-        parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
+        parser.add_argument("--cha", default=config["tc-resnet14"], type=list,
                             help="The channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
@@ -63,7 +63,9 @@ if __name__ == "__main__":
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
-    else: 
+    elif parameters.model == "stft-mlp":
+        model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
+    else:
         model = None
 
     # continuous learning.
