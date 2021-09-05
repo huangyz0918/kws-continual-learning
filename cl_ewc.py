@@ -7,7 +7,10 @@ Example training script of KWS models.
 
 import neptune
 import argparse
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, Trainer
+import torch.nn as nn
+from model.util.constant import *
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
+from model import Trainer, Evaluator, get_dataloader_keyword
 
 
 if __name__ == "__main__":
@@ -29,9 +32,11 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "unknown", "silence"]
-    # class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
-    class_list_2 = ["yes", "no", "up", "down", "unknown", "silence"]
+    class_list_1 = ["yes", "no", "unknown", "silence"]
+    class_list_2 = ["up", "down", "wow", "zero"]
+    class_list_3 = ["left", "right", "seven", "six"]
+    class_list_4 = ["on", "off", "house", "happy"]
+    class_list_5 = ["stop", "go", "dog", "cat"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -41,17 +46,35 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model',
-                              tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet'],
-                              params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
 
+    # build a multi-head setting for learning process.
+    total_class_list = []
+    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
+    for x in learning_tasks:
+        total_class_list += x
+    total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]] )
+    
     if parameters.model == "stft":
         model = STFT_TCResnet(
             filter_length=256, hop_length=129, bins=129,
-            channels=parameters.cha, channel_scale=parameters.scale, num_classes=len(class_list_1))
+            channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list_1))
-    else: 
+        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
+    elif parameters.model == "stft-mlp":
+        model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
+    else:
         model = None
 
-    Trainer(parameters, class_list_1, model=model).model_train()
+    # start continuous learning.
+    learned_class_list = []
+    for task_id, task_class in enumerate(learning_tasks):
+        learned_class_list += task_class
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, learned_class_list, parameters.batch)
+        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+        # fine-tune the whole model.
+        model = Trainer(parameters, task_class, train_loader, test_loader,
+                        cl_mode=CL_NONE, tag=f'task{task_id}', model=model).model_train()
+        for val_id in range(task_id + 1):
+            _, test_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], learned_class_list, parameters.batch)
+            Evaluator(model, f't{task_id}v{val_id}').evaluate(test_loader)
