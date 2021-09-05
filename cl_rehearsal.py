@@ -8,7 +8,6 @@ Replay the historical data to overcome catastrophic forgetting.
 import neptune
 import argparse
 import torch.nn as nn
-from model.util.constant import *
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
 from model import Trainer, Evaluator, get_dataloader_keyword, get_dataloader_replay
 
@@ -25,7 +24,7 @@ if __name__ == "__main__":
         parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
-        parser.add_argument("--cha", default=config["tc-resnet14"], type=list,
+        parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
@@ -55,6 +54,10 @@ if __name__ == "__main__":
     for x in learning_tasks:
         total_class_list += x
     total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
+    class_list = []
+    for task in learning_tasks:
+        class_list += task
+    class_encoding = {category: index for index, category in enumerate(class_list)}
     
     # load the model.
     if parameters.model == "stft":
@@ -75,35 +78,35 @@ if __name__ == "__main__":
         for task_id, task_class in enumerate(learning_tasks):
             print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
             learned_class_list += task_class
-            train_loader, test_loader = get_dataloader_replay(parameters.dpath, learned_class_list, learned_class_list, 
+            train_loader, test_loader = get_dataloader_replay(parameters.dpath, learned_class_list, learned_class_list, class_encoding, 
                                                                 replay_ratio=parameters.ratio, batch_size=parameters.batch)
             # fine-tune the whole model.
-            model = Trainer(parameters, learned_class_list, train_loader, test_loader,
-                            cl_mode=CL_REHEARSAL, tag=f'task{task_id}', model=model).model_train()
+            model = Trainer(parameters, learned_class_list, train_loader, test_loader, tag=f'task{task_id}', model=model).model_train()
             # the task evaluation.
             total_acc = 0
-            for val_id in range(task_id + 1):
-                _, val_loader = get_dataloader_replay(parameters.dpath, learning_tasks[val_id], learned_class_list)
-                log_data = Evaluator(model, f't{task_id}v{val_id}').evaluate(val_loader)
+            for val_id, task in enumerate(learning_tasks):
+                print(f">>>   Testing on task {val_id}, Keywords: {task}")
+                _, val_loader = get_dataloader_replay(parameters.dpath, task, learned_class_list, class_encoding)
+                log_data = Evaluator(model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
                 total_acc += log_data["test_accuracy"]
-            print(f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}")
+            print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
     else: 
         # continuous learning.
         learned_class_list = []
         for task_id, task_class in enumerate(learning_tasks):
             print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
             learned_class_list += task_class
-            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, 
+            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, class_encoding,
                                                                 replay_ratio=parameters.ratio, batch_size=parameters.batch)
             # fine-tune the whole model.
-            model = Trainer(parameters, task_class, train_loader, test_loader,
-                            cl_mode=CL_REHEARSAL, tag=f'task{task_id}', model=model).model_train()
+            model = Trainer(parameters, task_class, train_loader, test_loader, tag=f'task{task_id}', model=model).model_train()
             # the task evaluation.
             total_acc = 0
-            for val_id in range(task_id + 1):
-                _, val_loader = get_dataloader_replay(parameters.dpath, learning_tasks[val_id], learned_class_list)
-                log_data = Evaluator(model, f't{task_id}v{val_id}').evaluate(val_loader)
+            for val_id, task in enumerate(learning_tasks):
+                print(f">>>   Testing on task {val_id}, Keywords: {task}")
+                _, val_loader = get_dataloader_replay(parameters.dpath, task, learned_class_list, class_encoding)
+                log_data = Evaluator(model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
                 total_acc += log_data["test_accuracy"]
-            print(f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}")
+            print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")

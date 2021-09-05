@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from .util import snr_noise
 
 class SpeechCommandDataset(Dataset):
-    def __init__(self, datapath, filename, is_training, class_list, learned_class_list):
+    def __init__(self, datapath, filename, is_training, class_list, class_encoding):
         super(SpeechCommandDataset, self).__init__()
         """
         Args:
@@ -27,33 +27,27 @@ class SpeechCommandDataset(Dataset):
             is_training: True or False
         """
         self.classes = class_list
-        self.learned_classes = learned_class_list # learned class list should contain the classes in the current task.
         self.sampling_rate = 16000
         self.sample_length = 16000
         self.datapath = datapath
         self.filename = filename
         self.is_training = is_training
-        self.class_encoding = {category: index for index, category in enumerate(self.learned_classes)}
+        self.class_encoding = class_encoding
         self.speech_dataset = self.combined_path()
 
     def combined_path(self):
         dataset_list = []
         for path in self.filename:
             category, wave_name = path.split("/")
-            if category == "_silence_":
+            if category in self.classes and category == "_silence_":
                 dataset_list.append(["silence", "silence"])
             elif category in self.classes:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
-            else:
-                # remove the 'unknow' class if you want to check the catastrophic foretting.
-                path = os.path.join(self.datapath, category, wave_name)
-                dataset_list.append([path, "unknown"])
         return dataset_list
 
     def load_audio(self, speech_path):
         waveform, sr = torchaudio.load(speech_path)
-
         if waveform.shape[1] < self.sample_length:
             # padding if the audio length is smaller than samping length.
             waveform = F.pad(waveform, [0, self.sample_length - waveform.shape[1]])
@@ -88,7 +82,7 @@ class SpeechCommandDataset(Dataset):
 
 
 class RehearsalDataset(Dataset):
-    def __init__(self, datapath, filename, is_training, class_list, replay_class_list, replay_ratio=0.1):
+    def __init__(self, datapath, filename, is_training, class_list, class_encoding, replay_class_list, replay_ratio=0.1):
         super(RehearsalDataset, self).__init__()
         """
             Replay the historical data to overcome forgetting issue.
@@ -102,7 +96,7 @@ class RehearsalDataset(Dataset):
         self.filename = filename
         self.is_training = is_training
         # remove the duplicated keywords.
-        self.class_encoding = {category: index for index, category in enumerate(self.replay_class_list)}
+        self.class_encoding = class_encoding
         self.speech_dataset, self.replay_dataset = self.combined_path()
 
     def combined_path(self):
@@ -113,7 +107,7 @@ class RehearsalDataset(Dataset):
             # load the training data.
             if category in self.classes and category == "_silence_":
                 dataset_list.append(["silence", "silence"])
-            if category in self.classes:
+            elif category in self.classes:
                 path = os.path.join(self.datapath, category, wave_name)
                 dataset_list.append([path, category])
             # else:
