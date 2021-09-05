@@ -1,7 +1,7 @@
 """
-Training script of KWS models using EWC as the CL method.
-Reference: Overcoming catastrophic forgetting in neural networks
-https://arxiv.org/abs/1612.00796
+Training script of KWS models sing SI as the CL method.
+Reference: Continual Learning Through Synaptic Intelligence
+https://arxiv.org/abs/1703.04200
 
 @author huangyz0918
 @date 05/09/2021
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--elambda", default=6, type=float, help="EWC Lambda, the regularization strength")
+        parser.add_argument("--elambda", default=0.8, type=float, help="EWC Lambda")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")

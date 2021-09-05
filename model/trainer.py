@@ -220,8 +220,7 @@ class EWC_Trainer:
                     for name, param in self.model.named_parameters():
                         fisher = self.fisher_dict[t_id][name]
                         optpar = self.optpar_dict[t_id][name]
-                        regular_v = (fisher * (optpar - param).pow(2)).sum() * self.ewc_lambda
-                        loss += regular_v
+                        loss += (fisher * (optpar - param).pow(2)).sum() * self.ewc_lambda
 
                 loss.backward()
                 self.optimizer.step()
