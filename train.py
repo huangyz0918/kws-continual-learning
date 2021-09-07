@@ -7,7 +7,6 @@ Example training script of KWS models.
 
 import neptune
 import argparse
-from model.util.constant import *
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
 from model import Trainer, get_dataloader_keyword
 
@@ -54,6 +53,6 @@ if __name__ == "__main__":
     else:
         model = None
 
-    learned_class_list = class_list
-    train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, learned_class_list, parameters.batch)
-    Trainer(parameters, class_list, train_loader, test_loader, cl_mode=CL_NONE, model=model).model_train()
+    class_encoding = {category: index for index, category in enumerate(class_list)}
+    train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, class_encoding, parameters.batch)
+    Trainer(parameters, model).model_train(0, train_loader, test_loader, tag='CF') # task id: 0

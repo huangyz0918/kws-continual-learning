@@ -70,26 +70,17 @@ class Trainer:
     """
     The KWS model training class.
     """
-    def __init__(self, opt, class_list, train_dataloader, valid_dataloader, model, tag=None):
+    def __init__(self, opt, model):
         self.opt = opt
-        self.tag = tag
-        self.epoch = opt.epoch
         self.lr = opt.lr
-        self.batch = opt.batch
         self.step = opt.step
-        self.class_list = class_list
+        self.epoch = opt.epoch
+        self.batch = opt.batch
         self.model = model
-        self.train_dataloader = train_dataloader
-        self.valid_dataloader = valid_dataloader
         self.device, self.device_list = prepare_device(opt.gpu)
-
-        self.train_length = len(self.train_dataloader)
-        self.valid_length = len(self.valid_dataloader)
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
-
         # map the model weight to the device.
         self.model.to(self.device)
-
         # enable multi GPU training.
         if len(self.device_list) > 1:
             print(f">>>   Avaliable GPU device: {self.device_list}")
@@ -102,11 +93,12 @@ class Trainer:
             "train_loss": 0, "train_accuracy": 0, "train_total": 0, "train_correct": 0,
             "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
 
-    def model_train(self):
+    def model_train(self, task_id, train_dataloader, valid_dataloader, tag=None):
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(self.train_dataloader)):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 logits = self.model(waveform)
 
@@ -115,20 +107,20 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
 
-                self.loss_name["train_loss"] += loss.item() / self.train_length
+                self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
                 self.loss_name["train_total"] += labels.size(0)
                 self.loss_name["train_correct"] += (predict == labels).sum().item()
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(self.valid_dataloader)):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
                     loss = self.criterion(logits, labels)
 
-                    self.loss_name["valid_loss"] += loss.item() / self.valid_length
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
                     _, predict = torch.max(logits.data, 1)
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
@@ -140,13 +132,82 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            neptune.log_metric(f'{self.tag}-epoch', self.epo)
-            neptune.log_metric(f'{self.tag}-train_loss', self.loss_name["train_loss"])
-            neptune.log_metric(f'{self.tag}-val_loss', self.loss_name["valid_loss"])
-            neptune.log_metric(f'{self.tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
-            neptune.log_metric(f'{self.tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
-            
-        return self.model
+            if tag: 
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
+
+    def ewc_train(self, task_id, train_dataloader, valid_dataloader, 
+                    fisher_dict, optpar_dict, ewc_lambda, tag=None):
+        """
+        Using Elastic Weight Consolidation (EWC) as the continual learning method.
+
+        @article{kirkpatrick2017overcoming,
+            title={Overcoming catastrophic forgetting in neural networks},
+            author={Kirkpatrick, James and Pascanu, Razvan and Rabinowitz, Neil and Veness, Joel and Desjardins, Guillaume and Rusu, Andrei A and Milan, Kieran and Quan, John and Ramalho, Tiago and Grabska-Barwinska, Agnieszka and others},
+            journal={Proceedings of the national academy of sciences},
+            volume={114},
+            number={13},
+            pages={3521--3526},
+            year={2017},
+            publisher={National Acad Sciences}
+            }
+        """
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        for self.epo in range(self.epoch):
+            self.loss_name.update({key: 0 for key in self.loss_name})
+            self.model.train()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+                
+                self.optimizer.zero_grad()
+                logits = self.model(waveform)
+                loss = self.criterion(logits, labels)
+
+                # calculate the weight improtance (EWC) by adding regularization.
+                for t_id in range(task_id):
+                    for name, param in self.model.named_parameters():
+                        fisher = fisher_dict[t_id][name]
+                        optpar = optpar_dict[t_id][name]
+                        loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
+
+                loss.backward()
+                self.optimizer.step()
+
+                self.loss_name["train_loss"] += loss.item() / train_length
+                _, predict = torch.max(logits.data, 1)
+                self.loss_name["train_total"] += labels.size(0)
+                self.loss_name["train_correct"] += (predict == labels).sum().item()
+                self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
+
+            self.model.eval()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+                with torch.no_grad():
+                    waveform, labels = waveform.to(self.device), labels.to(self.device)
+                    logits = self.model(waveform)
+                    loss = self.criterion(logits, labels)
+
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
+                    _, predict = torch.max(logits.data, 1)
+                    self.loss_name["valid_total"] += labels.size(0)
+                    self.loss_name["valid_correct"] += (predict == labels).sum().item()
+                    self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
+
+            self.scheduler.step()
+            self.model_save()
+            print(
+                self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
+                                    self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
+
+            if tag: 
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
@@ -163,30 +224,34 @@ class Trainer:
             torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt"))
 
 
-class EWC_Trainer:
+
+class SI_Trainer:
     """
-    The KWS model training class using EWC as the continual learning method.
+    The KWS model training class using Synaptic Intelligence (SI) as the continual learning method.
+
+    Reference:
+    @inproceedings{zenke2017continual,
+        title={Continual Learning Through Synaptic Intelligence},
+        author={Zenke, Friedemann and Poole, Ben and Ganguli, Surya},
+        booktitle={International Conference on Machine Learning},
+        year={2017},
+        url={https://arxiv.org/abs/1703.04200}
+    }
     """
-    def __init__(self, opt, class_list, train_dataloader, valid_dataloader,
-                    task_id, fisher_dict, optpar_dict, ewc_lambda, model, tag=None):
+    def __init__(self, opt, model, damping_factor):
         self.opt = opt
-        self.tag = tag
         self.epoch = opt.epoch
         self.lr = opt.lr
         self.batch = opt.batch
         self.step = opt.step
-        self.class_list = class_list
         self.model = model
-        self.task_id = task_id
-        self.ewc_lambda = ewc_lambda
-        self.fisher_dict = fisher_dict
-        self.optpar_dict = optpar_dict
-        self.train_dataloader = train_dataloader
-        self.valid_dataloader = valid_dataloader
+        self.damping_factor = damping_factor
+        self.regularization_terms = {}
         self.device, self.device_list = prepare_device(opt.gpu)
-
-        self.train_length = len(self.train_dataloader)
-        self.valid_length = len(self.valid_dataloader)
+        self.params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}
+        self.initial_params = {}
+        for n, p in self.params.items():
+            self.initial_params[n] = p.clone().detach()
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
 
         # map the model weight to the device.
@@ -204,41 +269,55 @@ class EWC_Trainer:
             "train_loss": 0, "train_accuracy": 0, "train_total": 0, "train_correct": 0,
             "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
 
-    def model_train(self):
+
+    def calculate_importance(self, task_id, dataloader):
+        # Initialize the importance matrix
+        if task_id > 0:
+            importance = self.regularization_terms[1]['importance']
+            prev_params = self.regularization_terms[1]['task_param']
+        else:  # It is in the first task
+            importance = {}
+            for n, p in self.params.items():
+                importance[n] = p.clone().detach().fill_(0)  # zero initialized
+            prev_params = self.initial_params
+
+        # Calculate or accumulate the Omega (the importance matrix)
+        for n, p in importance.items():
+            delta_theta = self.params[n].detach() - prev_params[n]
+            p += self.w[n] / (delta_theta ** 2 + self.damping_factor)
+            self.w[n].zero_()
+        return importance
+
+
+    def model_train(self, task_id, train_dataloader, valid_dataloader, tag=None):
+        train_length = len(train_dataloader)
+        valid_length = len(valid_dataloader)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(self.train_dataloader)):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 
                 self.optimizer.zero_grad()
                 logits = self.model(waveform)
                 loss = self.criterion(logits, labels)
-
-                # calculate the weight improtance (EWC) by adding regularization.
-                for t_id in range(self.task_id):
-                    for name, param in self.model.named_parameters():
-                        fisher = self.fisher_dict[t_id][name]
-                        optpar = self.optpar_dict[t_id][name]
-                        loss += (fisher * (optpar - param).pow(2)).sum() * self.ewc_lambda
-
                 loss.backward()
                 self.optimizer.step()
 
-                self.loss_name["train_loss"] += loss.item() / self.train_length
+                self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
                 self.loss_name["train_total"] += labels.size(0)
                 self.loss_name["train_correct"] += (predict == labels).sum().item()
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(self.valid_dataloader)):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
                     loss = self.criterion(logits, labels)
 
-                    self.loss_name["valid_loss"] += loss.item() / self.valid_length
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
                     _, predict = torch.max(logits.data, 1)
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
@@ -250,11 +329,12 @@ class EWC_Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            neptune.log_metric(f'{self.tag}-epoch', self.epo)
-            neptune.log_metric(f'{self.tag}-train_loss', self.loss_name["train_loss"])
-            neptune.log_metric(f'{self.tag}-val_loss', self.loss_name["valid_loss"])
-            neptune.log_metric(f'{self.tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
-            neptune.log_metric(f'{self.tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+        if tag:
+            neptune.log_metric(f'{tag}-epoch', self.epo)
+            neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+            neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+            neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+            neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
             
         return self.model
 

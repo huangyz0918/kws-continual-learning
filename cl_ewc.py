@@ -15,13 +15,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
-from model import EWC_Trainer, Evaluator, get_dataloader_keyword
-
+from model import Trainer, Evaluator, get_dataloader_keyword
 
 # for EWC method to calculate the importance of the weight.
 fisher_dict = {}
 optpar_dict = {}
-
 
 def on_task_update(task_id, model, optimizer, device, loader_mem):
     """
@@ -109,22 +107,22 @@ if __name__ == "__main__":
 
     # continuous learning by EWC.
     learned_class_list = []
+    trainer = Trainer(parameters, model)
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
         # starting training.
-        trainer = EWC_Trainer(parameters, task_class, train_loader, test_loader, task_id, 
-                            fisher_dict, optpar_dict, parameters.elambda, tag=f'task{task_id}', model=model)
-        model = trainer.model_train()
+        trainer.ewc_train(task_id, train_loader, test_loader, 
+                            fisher_dict, optpar_dict, parameters.elambda, tag=task_id)
         # update the EWC parameters.
-        on_task_update(task_id, model, trainer.optimizer, device, train_loader)
+        on_task_update(task_id, trainer.model, trainer.optimizer, device, train_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
-            log_data = Evaluator(model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
+            log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
             neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
