@@ -15,35 +15,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
-from model import SI_Trainer, Evaluator, get_dataloader_keyword
+from model import Trainer, Evaluator, get_dataloader_keyword
 
 
-# for SI method.
-cached_params = {}
-unreg_gradients = {}
+def get_params(model) -> torch.Tensor:
+    """
+    Returns all the parameters concatenated in a single tensor.
+    :return: parameters tensor.
+    """
+    params = []
+    for _, param in model.named_parameters():
+        params.append(param.view(-1))
+    return torch.cat(params)
 
 
-def on_task_update(task_id, model, optimizer, device, loader_mem):
+def on_task_update(model, big_omega, small_omega, 
+                    cached_checkpoint, device, elambda=0):
     """
     Update the regularization after each task learning.
     """
-    model.train()
-    optimizer.zero_grad()
+    if big_omega is None:
+        big_omega = torch.zeros_like(get_params(model)).to(device)
+    # online EWC lambda.
+    big_omega += small_omega / ((get_params(model).data - cached_checkpoint) ** 2 + elambda)
 
-    # accumulating gradients (extra 1 epoch)
-    print(">>>   [EWC] accumulating gradients...")
-    for _, (waveform, labels) in enumerate(loader_mem):
-        waveform, labels = waveform.to(device), labels.to(device)
-        logits = model(waveform)
-        loss = F.cross_entropy(logits, labels)
-        loss.backward(retain_graph=True)
-
-    fisher_dict[task_id] = {}
-    optpar_dict[task_id] = {}
-
-    # gradients accumulated can be used to calculate fisher.
-    for name, param in model.named_parameters():
-        unreg_gradients[task_id][name] = param.data.clone()
+    # store parameters checkpoint and reset small_omega
+    return big_omega, 0, get_params(model).data.clone().to(device)
 
 
 if __name__ == "__main__":
@@ -51,7 +48,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--elambda", default=0.8, type=float, help="EWC Lambda")
+        parser.add_argument("--c", default=20, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -80,7 +77,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'SI'], params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
@@ -107,14 +104,22 @@ if __name__ == "__main__":
         model = None
 
     # continuous learning by SI.
+    big_omega = None
+    small_omega = 0
     learned_class_list = []
-    trainer = SI_Trainer(parameters, model, damping_factor=0.1)
+    trainer = Trainer(parameters, model)
+    # store a chaced mdoel checkpoint.
+    cached_checkpoint = get_params(trainer.model).data.clone().to(trainer.device)
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
         # starting training.
-        trainer.model_train(task_id, train_loader, test_loader, tag=task_id)
+        small_omega = trainer.si_train(task_id, train_loader, test_loader, 
+                                        big_omega, small_omega, cached_checkpoint, coefficient=parameters.c, tag=task_id)
+        # update the SI parameters.
+        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, 
+                                                                    small_omega, cached_checkpoint, trainer.device)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

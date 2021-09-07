@@ -7,7 +7,6 @@ Trainer class for KWS.
 
 import os
 import neptune
-import numpy as tqdm
 from tqdm import tqdm
 
 import torch
@@ -94,6 +93,9 @@ class Trainer:
             "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
 
     def model_train(self, task_id, train_dataloader, valid_dataloader, tag=None):
+        """
+        Normal model training process, without modifing the loss function.
+        """
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
@@ -209,89 +211,43 @@ class Trainer:
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-    def model_save(self):
-        save_directory = os.path.join("./model_save", self.opt.save)
-        if not os.path.isdir(save_directory):
-            os.makedirs(save_directory)
 
-        if self.loss_name["valid_accuracy"] >= 90.0:
-            torch.save(self.mode.state_dict(), os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
-
-        if (self.epo + 1) % self.opt.freq == 0:
-            torch.save(self.model.state_dict(), os.path.join(save_directory, "model" + str(self.epoch + 1) + ".pt"))
-
-        if (self.epo + 1) == self.epoch:
-            torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt"))
+    def get_gards(self) -> torch.Tensor:
+        """
+        Returns all the gardians concatenated in a single tensor.
+        :return: gardians tensor.
+        """
+        grads = []
+        for _, param in self.model.named_parameters():
+            grads.append(param.grad.view(-1))
+        return torch.cat(grads)
 
 
-
-class SI_Trainer:
-    """
-    The KWS model training class using Synaptic Intelligence (SI) as the continual learning method.
-
-    Reference:
-    @inproceedings{zenke2017continual,
-        title={Continual Learning Through Synaptic Intelligence},
-        author={Zenke, Friedemann and Poole, Ben and Ganguli, Surya},
-        booktitle={International Conference on Machine Learning},
-        year={2017},
-        url={https://arxiv.org/abs/1703.04200}
-    }
-    """
-    def __init__(self, opt, model, damping_factor):
-        self.opt = opt
-        self.epoch = opt.epoch
-        self.lr = opt.lr
-        self.batch = opt.batch
-        self.step = opt.step
-        self.model = model
-        self.damping_factor = damping_factor
-        self.regularization_terms = {}
-        self.device, self.device_list = prepare_device(opt.gpu)
-        self.params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}
-        self.initial_params = {}
-        for n, p in self.params.items():
-            self.initial_params[n] = p.clone().detach()
-        self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
-
-        # map the model weight to the device.
-        self.model.to(self.device)
-
-        # enable multi GPU training.
-        if len(self.device_list) > 1:
-            print(f">>>   Avaliable GPU device: {self.device_list}")
-            self.model = nn.DataParallel(self.model)
-
-        self.criterion = F.cross_entropy
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
-        self.loss_name = {
-            "train_loss": 0, "train_accuracy": 0, "train_total": 0, "train_correct": 0,
-            "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
+    def get_params(self) -> torch.Tensor:
+        """
+        Returns all the parameters concatenated in a single tensor.
+        :return: parameters tensor.
+        """
+        params = []
+        for _, param in self.model.named_parameters():
+            params.append(param.view(-1))
+        return torch.cat(params)
 
 
-    def calculate_importance(self, task_id, dataloader):
-        # Initialize the importance matrix
-        if task_id > 0:
-            importance = self.regularization_terms[1]['importance']
-            prev_params = self.regularization_terms[1]['task_param']
-        else:  # It is in the first task
-            importance = {}
-            for n, p in self.params.items():
-                importance[n] = p.clone().detach().fill_(0)  # zero initialized
-            prev_params = self.initial_params
+    def si_train(self, task_id, train_dataloader, valid_dataloader, 
+                    big_omega, small_omega, cached_checkpoint, coefficient=1, tag=None):
+        """
+        Using Synaptic Intelligence (SI) as the continual learning method.
 
-        # Calculate or accumulate the Omega (the importance matrix)
-        for n, p in importance.items():
-            delta_theta = self.params[n].detach() - prev_params[n]
-            p += self.w[n] / (delta_theta ** 2 + self.damping_factor)
-            self.w[n].zero_()
-        return importance
-
-
-    def model_train(self, task_id, train_dataloader, valid_dataloader, tag=None):
-        train_length = len(train_dataloader)
-        valid_length = len(valid_dataloader)
+        @inproceedings{zenke2017continual,
+            title={Continual Learning Through Synaptic Intelligence},
+            author={Zenke, Friedemann and Poole, Ben and Ganguli, Surya},
+            booktitle={International Conference on Machine Learning},
+            year={2017},
+            url={https://arxiv.org/abs/1703.04200}
+        }
+        """
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
@@ -300,9 +256,24 @@ class SI_Trainer:
                 
                 self.optimizer.zero_grad()
                 logits = self.model(waveform)
+
+                # calculate the loss penalty.
+                penalty = None
+                if big_omega is None:
+                    penalty = torch.tensor(0.0).to(self.device)
+                else:
+                    penalty = (big_omega * ((self.get_params() - cached_checkpoint) ** 2)).sum() * coefficient
+
                 loss = self.criterion(logits, labels)
+                loss += penalty
+                # debug
+                # print(penalty)
                 loss.backward()
+                nn.utils.clip_grad.clip_grad_value_(self.model.parameters(), 1)
                 self.optimizer.step()
+
+                # update the small_omega value.
+                small_omega += self.lr * self.get_gards().data ** 2
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -329,14 +300,15 @@ class SI_Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-        if tag:
-            neptune.log_metric(f'{tag}-epoch', self.epo)
-            neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
-            neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
-            neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
-            neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
-            
-        return self.model
+            if tag: 
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
+            return small_omega
+
 
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
