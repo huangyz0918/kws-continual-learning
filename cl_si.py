@@ -45,10 +45,10 @@ def on_task_update(model, big_omega, small_omega,
 if __name__ == "__main__":
     def options(config):
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
-        parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
+        parser.add_argument("--epoch", default=1, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--elambda", default=10, type=float, help="online EWC lambda")
-        parser.add_argument("--c", default=20, type=float, help="SI surrogate loss coefficient")
+        parser.add_argument("--elambda", default=0.0005, type=float, help="online EWC lambda")
+        parser.add_argument("--c", default=10, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
