@@ -38,7 +38,6 @@ def on_task_update(model, big_omega, small_omega,
         big_omega = torch.zeros_like(get_params(model)).to(device)
     # online EWC lambda.
     big_omega += small_omega / ((get_params(model).data - cached_checkpoint) ** 2 + elambda)
-
     # store parameters checkpoint and reset small_omega
     return big_omega, 0, get_params(model).data.clone().to(device)
 
@@ -48,6 +47,7 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
+        parser.add_argument("--elambda", default=10, type=float, help="online EWC lambda")
         parser.add_argument("--c", default=20, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
@@ -118,8 +118,8 @@ if __name__ == "__main__":
         small_omega = trainer.si_train(task_id, train_loader, test_loader, 
                                         big_omega, small_omega, cached_checkpoint, coefficient=parameters.c, tag=task_id)
         # update the SI parameters.
-        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, 
-                                                                    small_omega, cached_checkpoint, trainer.device)
+        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, small_omega, 
+                                                                    cached_checkpoint, trainer.device, parameters.elambda)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

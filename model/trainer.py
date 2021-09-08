@@ -247,10 +247,11 @@ class Trainer:
             url={https://arxiv.org/abs/1703.04200}
         }
         """
+        updated_small_omega = small_omega
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
         for self.epo in range(self.epoch):
-            self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
+            self.loss_name.update({key: 0 for key in self.loss_name})
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 
@@ -267,13 +268,13 @@ class Trainer:
                 loss = self.criterion(logits, labels)
                 loss += penalty
                 # debug
-                # print(penalty)
+                # print("big_omega: ", big_omega, " small_omega: ", updated_small_omega, " penalty: ", penalty)
                 loss.backward()
                 nn.utils.clip_grad.clip_grad_value_(self.model.parameters(), 1)
                 self.optimizer.step()
 
                 # update the small_omega value.
-                small_omega += self.lr * self.get_gards().data ** 2
+                updated_small_omega += self.lr * self.get_gards().data ** 2
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -307,7 +308,7 @@ class Trainer:
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-            return small_omega
+        return updated_small_omega
 
 
     def model_save(self):
