@@ -16,17 +16,7 @@ import torch.nn.functional as F
 
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
 from model import Trainer, Evaluator, get_dataloader_keyword
-
-
-def get_params(model) -> torch.Tensor:
-    """
-    Returns all the parameters concatenated in a single tensor.
-    :return: parameters tensor.
-    """
-    params = []
-    for _, param in model.named_parameters():
-        params.append(param.view(-1))
-    return torch.cat(params)
+from model.util import get_params
 
 
 def on_task_update(model, big_omega, small_omega, 
