@@ -43,7 +43,7 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=640, type=float, help="the rehearsal buffer size") 
+        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size") 
         parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")

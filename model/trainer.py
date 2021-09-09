@@ -344,13 +344,11 @@ class Trainer:
                 if not buffer.is_empty():
                     # copy gradient.
                     store_grad(self.model.parameters(), grads_da, grad_dims)
-
                     dot_prod = torch.mm(grads_da.unsqueeze(0), torch.stack(grads_cs).T)
                     if (dot_prod < 0).sum() != 0:
                         project2cone2(grads_da.unsqueeze(1), torch.stack(grads_cs).T, margin=gamma)
                         # copy gradients back.
                         overwrite_grad(self.model.parameters(), grads_da, grad_dims)
-
                 self.optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length
