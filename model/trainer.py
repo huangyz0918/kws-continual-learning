@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from .dataloader import SpeechCommandDataset, ContinualNoiseDataset, RehearsalDataset
 from .model import TCResNet, STFT_TCResnet, MFCC_TCResnet
 from .util import readlines, parameter_number, prepare_device
-from .util import get_params, get_gards, store_grad, overwrite_grad, project2cone2
+from .util import get_params, get_gards, store_grad, overwrite_grad, project2cone2, project
 
 
 def get_dataloader_keyword(data_path, class_list, class_encoding, batch_size=1):
@@ -349,6 +349,84 @@ class Trainer:
                         project2cone2(grads_da.unsqueeze(1), torch.stack(grads_cs).T, margin=gamma)
                         # copy gradients back.
                         overwrite_grad(self.model.parameters(), grads_da, grad_dims)
+                self.optimizer.step()
+
+                self.loss_name["train_loss"] += loss.item() / train_length
+                _, predict = torch.max(logits.data, 1)
+                self.loss_name["train_total"] += labels.size(0)
+                self.loss_name["train_correct"] += (predict == labels).sum().item()
+                self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
+
+            self.model.eval()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+                with torch.no_grad():
+                    waveform, labels = waveform.to(self.device), labels.to(self.device)
+                    logits = self.model(waveform)
+                    loss = self.criterion(logits, labels)
+
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
+                    _, predict = torch.max(logits.data, 1)
+                    self.loss_name["valid_total"] += labels.size(0)
+                    self.loss_name["valid_correct"] += (predict == labels).sum().item()
+                    self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
+
+            self.scheduler.step()
+            self.model_save()
+            print(
+                self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
+                                    self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
+
+            if tag: 
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
+    def agem_train(self, task_id, train_dataloader, valid_dataloader, buffer, 
+                    grad_dims, grad_xy, grad_er, tag=None):
+        """
+        Using Gradient Episodic Memory for Continual Learning (GEM) as the continual learning method.
+
+        @article{lopez2017gradient,
+            title={Gradient episodic memory for continual learning},
+            author={Lopez-Paz, David and Ranzato, Marc'Aurelio},
+            journal={Advances in neural information processing systems},
+            volume={30},
+            pages={6467--6476},
+            year={2017}
+            }
+        """
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        for self.epo in range(self.epoch):
+            self.loss_name.update({key: 0 for key in self.loss_name})
+            self.model.train()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+
+                # compute the grad on the current data.
+                logits = self.model(waveform)
+                self.optimizer.zero_grad()
+                loss = self.criterion(logits, labels)
+                loss.backward()
+
+                # get the rehearsal data.
+                if not buffer.is_empty():
+                    store_grad(self.model.parameters(), grad_xy, grad_dims)
+                    buf_inputs, buf_labels = buffer.get_data(self.batch)
+                    self.optimizer.zero_grad()
+                    buf_outputs = self.model.forward(buf_inputs)
+                    penalty = self.criterion(buf_outputs, buf_labels)
+                    penalty.backward()
+                    store_grad(self.model.parameters(), grad_er, grad_dims)
+
+                    dot_prod = torch.dot(grad_xy, grad_er)
+                    if dot_prod.item() < 0:
+                        g_tilde = project(gxy=grad_xy, ger=grad_er)
+                        overwrite_grad(self.model.parameters(), g_tilde, grad_dims)
+                    else:
+                        overwrite_grad(self.model.parameters(), grad_xy, grad_dims)
+
                 self.optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length

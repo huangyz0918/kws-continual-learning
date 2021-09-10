@@ -1,40 +1,15 @@
 """
-Training script of KWS models using GEM as the CL method.
-Reference: Gradient Episodic Memory for Continual Learning
-Gradient Episodic Memory for Continual Learning
+Continuous learning with TCResNet-PNN.
 
 @author huangyz0918
-@date 05/09/2021
+@date 10/09/2021
 """
 
 import neptune
 import argparse
-import numpy as np
-
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
 from model import Trainer, Evaluator, get_dataloader_keyword
-from model.util import Buffer, get_grad_dim
-
-
-def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loader):
-    """
-    Update the regularization after each task learning.
-    """
-    current_task = task_id + 1
-    grads_cs.append(torch.zeros(np.sum(grad_dims)).to(device))
-
-    # add data to the buffer.
-    samples_per_task = buffer.buffer_size // task_num
-    cur_x, cur_y = next(iter(loader))
-    buffer.add_data(
-        examples=cur_x.to(device),
-        labels=cur_y.to(device),
-        task_labels=torch.ones(samples_per_task, dtype=torch.long).to(device) * (current_task - 1)
-    )
 
 
 if __name__ == "__main__":
@@ -42,9 +17,6 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size") 
-        parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -59,11 +31,11 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed"]
-    class_list_2 = ["up", "down", "wow", "happy", "four"]
-    class_list_3 = ["left", "right", "seven", "six", "marvin"]
-    class_list_4 = ["on", "off", "house", "zero", "sheila"]
-    class_list_5 = ["stop", "go", "dog", "cat", "two"]
+    class_list_1 = ["yes", "no", "unknown", "silence"]
+    class_list_2 = ["up", "down", "wow", "zero"]
+    class_list_3 = ["left", "right", "seven", "six"]
+    class_list_4 = ["on", "off", "house", "happy"]
+    class_list_5 = ["stop", "go", "dog", "cat"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -73,8 +45,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'], params=vars(parameters))
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -99,30 +70,20 @@ if __name__ == "__main__":
     else:
         model = None
 
-    # continuous learning by GEM.
+    # start continuous learning.
     learned_class_list = []
-    trainer = Trainer(parameters, model)
-    gem_buffer = Buffer(parameters.bsize, trainer.device)
-    # Allocate temporary synaptic memory.
-    grad_dims = get_grad_dim(trainer.model)
-    grads_cs = []
-    grads_da = torch.zeros(np.sum(grad_dims)).to(trainer.device)
-    # start continual learning process.
     for task_id, task_class in enumerate(learning_tasks):
-        print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
-        # starting training.
-        trainer.gem_train(task_id, train_loader, test_loader, gem_buffer, grad_dims, 
-                            grads_cs, grads_da, parameters.gamma, tag=task_id)
-        # update the GEM parameters.
-        on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
+        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+        # fine-tune the whole model.
+        model = Trainer(parameters, task_class, train_loader, test_loader, tag=f'task{task_id}', model=model).model_train()
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
-            log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
+            log_data = Evaluator(model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
             neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")

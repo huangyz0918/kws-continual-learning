@@ -1,7 +1,7 @@
 """
-Training script of KWS models using GEM as the CL method.
-Reference: Gradient Episodic Memory for Continual Learning
-Gradient Episodic Memory for Continual Learning
+Training script of KWS models using A-GEM as the CL method.
+Reference: Continual Learning Through Synaptic Intelligence
+https://arxiv.org/abs/1703.04200
 
 @author huangyz0918
 @date 05/09/2021
@@ -20,21 +20,13 @@ from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
 
-def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loader):
+def on_task_update(task_num, buffer, device, loader):
     """
     Update the regularization after each task learning.
     """
-    current_task = task_id + 1
-    grads_cs.append(torch.zeros(np.sum(grad_dims)).to(device))
-
-    # add data to the buffer.
     samples_per_task = buffer.buffer_size // task_num
     cur_x, cur_y = next(iter(loader))
-    buffer.add_data(
-        examples=cur_x.to(device),
-        labels=cur_y.to(device),
-        task_labels=torch.ones(samples_per_task, dtype=torch.long).to(device) * (current_task - 1)
-    )
+    buffer.add_data(examples=cur_x.to(device), labels=cur_y.to(device))
 
 
 if __name__ == "__main__":
@@ -43,8 +35,8 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size") 
-        parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
+        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
+        parser.add_argument("--c", default=0.1, type=float, help="the coefficient of A-GEM")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -73,7 +65,7 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'A-GEM'], params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
@@ -102,21 +94,20 @@ if __name__ == "__main__":
     # continuous learning by GEM.
     learned_class_list = []
     trainer = Trainer(parameters, model)
-    gem_buffer = Buffer(parameters.bsize, trainer.device)
+    buffer = Buffer(parameters.bsize, trainer.device)
     # Allocate temporary synaptic memory.
     grad_dims = get_grad_dim(trainer.model)
-    grads_cs = []
-    grads_da = torch.zeros(np.sum(grad_dims)).to(trainer.device)
+    grad_xy = torch.Tensor(np.sum(grad_dims)).to(trainer.device)
+    grad_er = torch.Tensor(np.sum(grad_dims)).to(trainer.device)
     # start continual learning process.
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
         # starting training.
-        trainer.gem_train(task_id, train_loader, test_loader, gem_buffer, grad_dims, 
-                            grads_cs, grads_da, parameters.gamma, tag=task_id)
-        # update the GEM parameters.
-        on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
+        trainer.agem_train(task_id, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er, tag=task_id)
+        # update the A-GEM parameters.
+        on_task_update(len(learning_tasks), buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

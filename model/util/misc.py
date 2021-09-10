@@ -121,6 +121,9 @@ def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
     x = np.dot(v, memories_np) + gradient_np
     gradient.copy_(torch.from_numpy(x).view(-1, 1))
 
+def project(gxy: torch.Tensor, ger: torch.Tensor) -> torch.Tensor:
+    corr = torch.dot(gxy, ger) / torch.dot(ger, ger)
+    return gxy - corr * ger
 
 def get_params(model: nn.Module) -> torch.Tensor:
     """

@@ -1,5 +1,5 @@
 """
-Training script of KWS models sing SI as the CL method.
+Training script of KWS models using SI as the CL method.
 Reference: Continual Learning Through Synaptic Intelligence
 https://arxiv.org/abs/1703.04200
 
