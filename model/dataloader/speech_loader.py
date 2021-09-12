@@ -51,8 +51,6 @@ class SpeechCommandDataset(Dataset):
         if waveform.shape[1] < self.sample_length:
             # padding if the audio length is smaller than samping length.
             waveform = F.pad(waveform, [0, self.sample_length - waveform.shape[1]])
-        else:
-            pass
 
         if self.is_training == True:
             pad_length = int(waveform.shape[1] * 0.1)

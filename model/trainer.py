@@ -35,7 +35,7 @@ def get_dataloader_keyword(data_path, class_list, class_encoding, batch_size=1):
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         return train_dataloader, valid_dataloader
     else:
-        return None
+        raise ValueError("the class list is empty!")
 
 
 def get_dataloader_replay(data_path, class_list, replay_list, class_encoding, replay_ratio=0.1, batch_size=1):
@@ -55,7 +55,7 @@ def get_dataloader_replay(data_path, class_list, replay_list, class_encoding, re
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         return train_dataloader, valid_dataloader
     else:
-        return None
+        raise ValueError("the class list is empty!")
 
 
 def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_db=10):
@@ -73,7 +73,7 @@ def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         return train_dataloader, valid_dataloader
     else:
-        return None
+        raise ValueError("the class list is empty!")
 
 class Trainer:
     """
@@ -413,6 +413,7 @@ class Trainer:
                 # get the rehearsal data.
                 if not buffer.is_empty():
                     store_grad(self.model.parameters(), grad_xy, grad_dims)
+                    
                     buf_inputs, buf_labels = buffer.get_data(self.batch)
                     self.optimizer.zero_grad()
                     buf_outputs = self.model.forward(buf_inputs)

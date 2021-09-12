@@ -31,15 +31,16 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "unknown", "silence"]
-    class_list_2 = ["up", "down", "wow", "zero"]
-    class_list_3 = ["left", "right", "seven", "six"]
-    class_list_4 = ["on", "off", "house", "happy"]
-    class_list_5 = ["stop", "go", "dog", "cat"]
+    class_list_1 = ["yes", "no", "nine", "three", "bed"]
+    class_list_2 = ["up", "down", "wow", "happy", "four"]
+    class_list_3 = ["left", "right", "seven", "six", "marvin"]
+    class_list_4 = ["on", "off", "house", "zero", "sheila"]
+    class_list_5 = ["stop", "go", "dog", "cat", "two"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
-        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]}
+        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]
+        }
 
     parameters = options(config)
 
@@ -72,18 +73,19 @@ if __name__ == "__main__":
 
     # start continuous learning.
     learned_class_list = []
+    trainer = Trainer(parameters, model)
     for task_id, task_class in enumerate(learning_tasks):
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
         print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
         # fine-tune the whole model.
-        model = Trainer(parameters, task_class, train_loader, test_loader, tag=f'task{task_id}', model=model).model_train()
+        trainer.model_train(task_id, train_loader, test_loader, tag=f'task{task_id}')
         # start evaluating the CL on previous tasks.
         total_acc = 0
-        for val_id, task in enumerate(learning_tasks):
-            print(f">>>   Testing on task {val_id}, Keywords: {task}")
-            _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
-            log_data = Evaluator(model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
-            neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
+        for val_id, keyword in enumerate(class_list):
+            print(f">>>   Testing on keyword id {val_id}; Keywords: {keyword}")
+            _, val_loader = get_dataloader_keyword(parameters.dpath, [keyword], class_encoding, parameters.batch)
+            log_data = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}').evaluate(val_loader)
+            neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
-        print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+        print(f">>>   Average Accuracy: {total_acc / len(class_list) * 100}")

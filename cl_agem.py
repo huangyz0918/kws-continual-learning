@@ -36,7 +36,6 @@ if __name__ == "__main__":
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
         parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
-        parser.add_argument("--c", default=0.1, type=float, help="the coefficient of A-GEM")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")

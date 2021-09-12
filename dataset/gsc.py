@@ -62,8 +62,7 @@ def is_noise_label(label):
     return label == BACKGROUND_NOISE_DIR_NAME or label == BACKGROUND_NOISE_LABEL
 
 
-def process_files(input_dir, train_list_fullpath, valid_list_fullpath, test_list_fullpath, wanted_words,
-                  output_dir):
+def process_files(input_dir, train_list_fullpath, valid_list_fullpath, test_list_fullpath, wanted_words, output_dir):
     # load split list
     data = {
         "train": [],
