@@ -17,13 +17,29 @@ from torchaudio.transforms import MFCC
 from .util import STFT
 
 
+class RNN(nn.Module):
+    def __init__(self, hop_length, audio_time, n_class, n_layers=1, hidden_size=512):
+        super().__init__()
+        self.hop_length = hop_length
+        self.audio_time = audio_time
+        self.rnn = nn.LSTM(input_size=self.hop_length,
+                            hidden_size=hidden_size,
+                            num_layers=n_layers,
+                            batch_first=True)
+        self.out = nn.Linear(hidden_size, n_class)
+
+    def forward(self, inputs):
+        inputs = inputs.view(-1, self.audio_time, self.hop_length)
+        r_out, (h_n, h_c) = self.rnn(inputs, None)
+        out = self.out(r_out[:, -1, :])
+        return out
 
 class MLP(nn.Module):
     def __init__(self, hop_length, audio_time, n_class):
         super().__init__()
                 
-        self.input_fc = nn.Linear(hop_length * audio_time, 250)
-        self.hidden_fc = nn.Linear(250, 100)
+        self.input_fc = nn.Linear(hop_length * audio_time, 512)
+        self.hidden_fc = nn.Linear(512, 100)
         self.output_fc = nn.Linear(100, n_class)
         
     def forward(self, inputs):
@@ -171,4 +187,26 @@ class STFT_MLP(nn.Module):
         real, imag = self.stft_layer(waveform)
         spectrogram = self.__spectrogram__(real, imag)
         logits = self.mlp(spectrogram)
+        return logits
+
+class STFT_RNN(nn.Module):
+    def __init__(self, filter_length, hop_length, bins, num_classes, hidden_size):
+        super(STFT_RNN, self).__init__()
+        sampling_rate = 16000
+        self.bins = bins
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.num_classes = num_classes
+
+        self.stft_layer = STFT(self.filter_length, self.hop_length)
+        self.rnn = RNN(self.bins, 125, self.num_classes, hidden_size=hidden_size)
+
+    def __spectrogram__(self, real, imag):
+        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
+        return spectrogram
+
+    def forward(self, waveform):
+        real, imag = self.stft_layer(waveform)
+        spectrogram = self.__spectrogram__(real, imag)
+        logits = self.rnn(spectrogram)
         return logits

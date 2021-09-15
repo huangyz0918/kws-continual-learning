@@ -8,7 +8,7 @@ Continuous learning with TCResNet-PNN.
 import neptune
 import argparse
 import torch.nn as nn
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, STFT_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 
 
@@ -67,6 +67,8 @@ if __name__ == "__main__":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
+    elif parameters.model == "stft-rnn":
+        model = STFT_RNN(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list), hidden_size=512)
     else:
         model = None
 
