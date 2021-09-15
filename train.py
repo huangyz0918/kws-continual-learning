@@ -7,7 +7,7 @@ Example training script of KWS models.
 
 import neptune
 import argparse
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, STFT_RNN
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, get_dataloader_keyword
 
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list = ["yes", "no", "up", "down", "left", "right", "on", "off", "stop", "go", "unknown", "silence"]
+    class_list = ["yes", "no", "unknown", "silence"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -50,8 +50,8 @@ if __name__ == "__main__":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=len(class_list))
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list))
-    elif parameters.model == "stft-rnn":
-        model = STFT_RNN(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list), hidden_size=512)
+    elif parameters.model == "mfcc-rnn":
+        model = MFCC_RNN(n_mfcc=40, sampling_rate=16000, num_classes=len(class_list), n_layers=3) # sample length for the dataset is 16000.
     else:
         model = None
 

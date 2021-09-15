@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, STFT_RNN
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
@@ -100,11 +100,11 @@ if __name__ == "__main__":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
-    elif parameters.model == "stft-rnn":
-        model = STFT_RNN(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list), hidden_size=512)
+    elif parameters.model == "rnn":
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
     else:
         model = None
-
+        
     # continuous learning by GEM.
     learned_class_list = []
     trainer = Trainer(parameters, model)

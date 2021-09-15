@@ -14,25 +14,28 @@ from torchaudio.transforms import Spectrogram
 from torchaudio.transforms import MelSpectrogram
 from torchaudio.transforms import MFCC
 
-from .util import STFT
+from .util import STFT, compute_mfcc
 
 
 class RNN(nn.Module):
-    def __init__(self, hop_length, audio_time, n_class, n_layers=1, hidden_size=512):
-        super().__init__()
-        self.hop_length = hop_length
-        self.audio_time = audio_time
-        self.rnn = nn.LSTM(input_size=self.hop_length,
-                            hidden_size=hidden_size,
-                            num_layers=n_layers,
-                            batch_first=True)
-        self.out = nn.Linear(hidden_size, n_class)
+    def __init__(self, input_size, num_classes, hidden_size=512, n_layers=1):
+        super(RNN, self).__init__()
+
+        self.hidden_size = hidden_size
+        self.num_layers = n_layers
+        self.lstm = nn.LSTM(input_size, hidden_size, n_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, num_classes)
 
     def forward(self, inputs):
-        inputs = inputs.view(-1, self.audio_time, self.hop_length)
-        r_out, (h_n, h_c) = self.rnn(inputs, None)
-        out = self.out(r_out[:, -1, :])
+        batch_size, _, n_mfcc, _ = inputs.shape
+        inputs = inputs.reshape(batch_size, -1, n_mfcc)
+        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size)
+        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_size)
+
+        out, _ = self.lstm(inputs, (h0, c0))
+        out = self.fc(out[:, -1, :])
         return out
+
 
 class MLP(nn.Module):
     def __init__(self, hop_length, audio_time, n_class):
@@ -189,24 +192,17 @@ class STFT_MLP(nn.Module):
         logits = self.mlp(spectrogram)
         return logits
 
-class STFT_RNN(nn.Module):
-    def __init__(self, filter_length, hop_length, bins, num_classes, hidden_size):
-        super(STFT_RNN, self).__init__()
-        sampling_rate = 16000
-        self.bins = bins
-        self.filter_length = filter_length
-        self.hop_length = hop_length
+class MFCC_RNN(nn.Module):
+    def __init__(self, n_mfcc, sampling_rate, n_layers=1, hidden_size=512, num_classes=12):
+        super(MFCC_RNN, self).__init__()
+        self.sampling_rate = sampling_rate
         self.num_classes = num_classes
+        self.n_mfcc = n_mfcc # feature length
 
-        self.stft_layer = STFT(self.filter_length, self.hop_length)
-        self.rnn = RNN(self.bins, 125, self.num_classes, hidden_size=hidden_size)
-
-    def __spectrogram__(self, real, imag):
-        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
-        return spectrogram
+        self.mfcc_layer = MFCC(sample_rate=self.sampling_rate, n_mfcc=self.n_mfcc, log_mels=True)
+        self.rnn = RNN(self.n_mfcc, self.num_classes, hidden_size=hidden_size, n_layers=n_layers)
 
     def forward(self, waveform):
-        real, imag = self.stft_layer(waveform)
-        spectrogram = self.__spectrogram__(real, imag)
-        logits = self.rnn(spectrogram)
+        mel_sepctogram = self.mfcc_layer(waveform)
+        logits = self.rnn(mel_sepctogram)
         return logits

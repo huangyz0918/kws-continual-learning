@@ -1,6 +1,6 @@
 from .stft import STFT
 from .stft import InverseSTFT
-from .mfcc import MFCC
+from .mfcc import MFCC, compute_mfcc
 from .buffer import Buffer
 from .misc import readlines, sample_dataset
 from .misc import parameter_number, prepare_device

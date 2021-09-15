@@ -113,7 +113,6 @@ class Trainer:
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 logits = self.model(waveform)
-
                 self.optimizer.zero_grad()
                 loss = self.criterion(logits, labels)
                 loss.backward()

@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP
+from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import get_params
 
@@ -90,6 +90,8 @@ if __name__ == "__main__":
         model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
+    elif parameters.model == "rnn":
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
     else:
         model = None
 

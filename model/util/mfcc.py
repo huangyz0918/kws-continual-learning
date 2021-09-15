@@ -1,9 +1,14 @@
 import math
 import numpy
 import decimal
+import librosa
 
 import torch
 from torch.autograd import Function
+
+
+def compute_mfcc(data, sample_rate, n_mfcc=12):
+    return librosa.feature.mfcc(y=data, sr=sample_rate, n_mfcc=n_mfcc)
 
 
 def dct(x, norm=None):
