@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from typing import List
 from einops import rearrange
 from torchaudio.transforms import Spectrogram
 from torchaudio.transforms import MelSpectrogram
@@ -192,6 +193,7 @@ class STFT_MLP(nn.Module):
         logits = self.mlp(spectrogram)
         return logits
 
+
 class MFCC_RNN(nn.Module):
     def __init__(self, n_mfcc, sampling_rate, n_layers=1, hidden_size=512, num_classes=12):
         super(MFCC_RNN, self).__init__()
@@ -206,3 +208,74 @@ class MFCC_RNN(nn.Module):
         mel_sepctogram = self.mfcc_layer(waveform)
         logits = self.rnn(mel_sepctogram)
         return logits
+
+############################################### PNN Experimental #########################################
+
+class Net(nn.Module):
+    """
+    Basic PNN network structure.
+    """
+    def __init__(self):
+        super().__init__()
+        self.cols = nn.ModuleList()
+
+    def add_column(self, input_size, hsize=128):
+        for col in self.cols:
+            col.freeze() # freeze all previous columns.
+
+        col_id = len(self.cols) # create new column
+        col = Column(input_size, col_id, hsize)
+        self.cols.append(col)
+
+    def forward(self, x, id, lateral_weights=None):
+        if lateral_weights is None:
+            lateral_weights = [1 for _ in range(id)]
+
+        col = self.cols[id]
+        return col(x, self.cols[:id], lateral_weights)
+
+
+class Column(nn.Module):
+    """
+    The columns of each learning tasks.
+    In the code we use a hidden layer of size 128 for task#1 and 32 for all the subsequent tasks.
+    """
+    def __init__(self, input_size, col_id=0, hsize=128):
+        super().__init__()
+        self.l1 = nn.Linear(input_size, hsize)
+        self.l2 = nn.Linear(hsize, 2)
+        self.Us = nn.ModuleList()
+        self.col_id = col_id
+
+        for col_i in range(self.col_id):
+            h = 128 if col_i == 0 else 32
+            lateral = nn.Linear(h, 2)
+            self.Us.append(lateral)
+
+    def add_lateral(self, x, prev_cols, lateral_weights):
+        outputs = torch.zeros_like(x)
+        for col_id, col in enumerate(prev_cols):
+            input = col.outputs
+            if lateral_weights:
+                input = input * lateral_weights[col_id]
+            layer = self.Us[col_id]
+            outputs += layer(input)
+        return outputs
+
+    def freeze(self):
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, x, prev_cols, lateral_weights):
+        for i, col in enumerate(prev_cols):
+            l_w = lateral_weights[:i + 1]
+            col(x, prev_cols[:i], l_w)
+
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.l1(x))
+
+        self.outputs = x
+
+        x = self.l2(x)
+        x += self.add_lateral(x, prev_cols=prev_cols, lateral_weights=lateral_weights)
+        return x

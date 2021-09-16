@@ -462,6 +462,61 @@ class Trainer:
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
 
+    def pnn_train(self, task_id, train_dataloader, valid_dataloader, tag=None):
+        """
+        Using Progressive Neural Networks (PNN) as the continual learning method.
+
+        @article{rusu2016progressive,
+            title={Progressive neural networks},
+            author={Rusu, Andrei A and Rabinowitz, Neil C and Desjardins, Guillaume and Soyer, Hubert and Kirkpatrick, James and Kavukcuoglu, Koray and Pascanu, Razvan and Hadsell, Raia},
+            journal={arXiv preprint arXiv:1606.04671},
+            year={2016}
+        }
+        """
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        for self.epo in range(self.epoch):
+            self.loss_name.update({key: 0 for key in self.loss_name})
+            self.model.train()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+                logits = self.model(waveform)
+                self.optimizer.zero_grad()
+                loss = self.criterion(logits, labels)
+                loss.backward()
+                self.optimizer.step()
+
+                self.loss_name["train_loss"] += loss.item() / train_length
+                _, predict = torch.max(logits.data, 1)
+                self.loss_name["train_total"] += labels.size(0)
+                self.loss_name["train_correct"] += (predict == labels).sum().item()
+                self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
+
+            self.model.eval()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+                with torch.no_grad():
+                    waveform, labels = waveform.to(self.device), labels.to(self.device)
+                    logits = self.model(waveform)
+                    loss = self.criterion(logits, labels)
+
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
+                    _, predict = torch.max(logits.data, 1)
+                    self.loss_name["valid_total"] += labels.size(0)
+                    self.loss_name["valid_correct"] += (predict == labels).sum().item()
+                    self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
+
+            self.scheduler.step()
+            self.model_save()
+            print(
+                self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
+                                    self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
+
+            if tag: 
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
         if not os.path.isdir(save_directory):

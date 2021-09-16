@@ -1,15 +1,25 @@
 """
 Continuous learning with TCResNet-PNN.
 
+Reference: Progressive Neural Networks (Google DeepMind)
+
 @author huangyz0918
-@date 10/09/2021
+@date 16/09/2021
 """
 
 import neptune
 import argparse
+import torch 
 import torch.nn as nn
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
+
+
+def on_task_update(task_id, trainer, networks, num_task, device):
+    """
+    instantiate new column after each task learning.
+    """
+    pass
 
 
 if __name__ == "__main__":
@@ -31,11 +41,15 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "unknown", "silence"]
-    class_list_2 = ["up", "down", "wow", "zero"]
-    class_list_3 = ["left", "right", "seven", "six"]
-    class_list_4 = ["on", "off", "house", "happy"]
-    class_list_5 = ["stop", "go", "dog", "cat"]
+    class_list_1 = ["yes", "no", "nine", "three", "bed", 
+                    "up", "down", "wow", "happy", "four",
+                    "left", "right", "seven", "six", "marvin", 
+                    "on", "off", "house", "zero", "sheila"]
+    class_list_2 = ["stop", "go"]
+    class_list_3 = ["dog", "cat"]
+    class_list_4 = ["two", "bird"]
+    class_list_5 = ["eight", "five"]
+    class_list_6 = ["tree", "one"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -45,11 +59,11 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'PNN'], params=vars(parameters))
 
     # build a multi-head setting for learning process.
     total_class_list = []
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
+    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
     for x in learning_tasks:
         total_class_list += x
     total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
@@ -57,20 +71,10 @@ if __name__ == "__main__":
     for task in learning_tasks:
         class_list += task
     class_encoding = {category: index for index, category in enumerate(class_list)}
-    
-    # load the model.
-    if parameters.model == "stft":
-        model = STFT_TCResnet(
-            filter_length=256, hop_length=129, bins=129,
-            channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
-    elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
-    elif parameters.model == "stft-mlp":
-        model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
-    elif parameters.model == "rnn":
-        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
-    else:
-        model = None
+
+    # initializing the PNN model.
+    networks = []
+    # model = 
 
     # start continuous learning.
     learned_class_list = []
