@@ -210,21 +210,24 @@ class MFCC_RNN(nn.Module):
         return logits
 
 ############################################### PNN Experimental #########################################
-
-class Net(nn.Module):
+class PNN_Net(nn.Module):
     """
     Basic PNN network structure.
     """
-    def __init__(self):
+    def __init__(self, filter_length, hop_length, input_size):
         super().__init__()
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.input_size = input_size
         self.cols = nn.ModuleList()
 
-    def add_column(self, input_size, hsize=128):
+    def add_column(self, num_class, hsize=128):
         for col in self.cols:
             col.freeze() # freeze all previous columns.
 
-        col_id = len(self.cols) # create new column
-        col = Column(input_size, col_id, hsize)
+        col_id = len(self.cols) # create new column.
+        col = STFT_Column(col_id, self.filter_length, self.hop_length, 
+                            self.input_size, num_class, hsize)
         self.cols.append(col)
 
     def forward(self, x, id, lateral_weights=None):
@@ -235,21 +238,37 @@ class Net(nn.Module):
         return col(x, self.cols[:id], lateral_weights)
 
 
+class STFT_Column(nn.Module):
+    def __init__(self, col_id, filter_length, hop_length, input_size, num_classes, hsize):
+        super(STFT_Column, self).__init__()
+        self.stft_layer = STFT(filter_length, hop_length)
+        self.column = Column(input_size, num_classes, col_id=col_id, hsize=hsize)
+
+    def __spectrogram__(self, real, imag):
+        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
+        return spectrogram
+
+    def forward(self, waveform, prev_cols, lateral_weights=None):
+        real, imag = self.stft_layer(waveform)
+        spectrogram = self.__spectrogram__(real, imag)
+        logits = self.column(spectrogram, prev_cols, lateral_weights)
+        return logits
+
 class Column(nn.Module):
     """
     The columns of each learning tasks.
     In the code we use a hidden layer of size 128 for task#1 and 32 for all the subsequent tasks.
     """
-    def __init__(self, input_size, col_id=0, hsize=128):
+    def __init__(self, input_size, num_class, col_id=0, hsize=128):
         super().__init__()
         self.l1 = nn.Linear(input_size, hsize)
-        self.l2 = nn.Linear(hsize, 2)
+        self.l2 = nn.Linear(hsize, num_class)
         self.Us = nn.ModuleList()
         self.col_id = col_id
 
         for col_i in range(self.col_id):
-            h = 128 if col_i == 0 else 32
-            lateral = nn.Linear(h, 2)
+            h = 128 if col_i == 0 else 32 # setup a small column size (32) for afterward columns.
+            lateral = nn.Linear(h, num_class)
             self.Us.append(lateral)
 
     def add_lateral(self, x, prev_cols, lateral_weights):

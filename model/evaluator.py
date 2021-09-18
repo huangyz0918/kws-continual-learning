@@ -36,3 +36,32 @@ class Evaluator:
             print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
             
         return self.log_data
+
+
+    def pnn_evaluate(self, task_id, data_loader, with_lateral_con=False):
+        """
+        with_lateral_con: test on the task with/without lateral connections.
+        """
+        if with_lateral_con:
+            l_w = [1] * id
+        else: 
+            l_w = [0] * id
+
+        self.model.eval()
+        for batch_idx, (waveform, labels) in tqdm(enumerate(data_loader)):
+            with torch.no_grad():
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+                logits = self.model(waveform, task_id, lateral_weights=l_w)
+                
+                _, predict = torch.max(logits.data, 1)
+                self.log_data["test_total"] += labels.size(0)
+                self.log_data["test_correct"] += (predict == labels).sum().item()
+                self.log_data["test_accuracy"] = self.log_data["test_correct"] / self.log_data["test_total"]
+
+        neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
+        if self.class_list:
+            print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
+        else:
+            print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
+            
+        return self.log_data
