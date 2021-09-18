@@ -102,6 +102,20 @@ class Trainer:
             "train_loss": 0, "train_accuracy": 0, "train_total": 0, "train_correct": 0,
             "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
 
+    def model_save(self):
+        save_directory = os.path.join("./model_save", self.opt.save)
+        if not os.path.isdir(save_directory):
+            os.makedirs(save_directory)
+
+        if self.loss_name["valid_accuracy"] >= 90.0:
+            torch.save(self.mode.state_dict(), os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
+
+        if (self.epo + 1) % self.opt.freq == 0:
+            torch.save(self.model.state_dict(), os.path.join(save_directory, "model" + str(self.epoch + 1) + ".pt"))
+
+        if (self.epo + 1) == self.epoch:
+            torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt")) 
+            
     def model_train(self, task_id, train_dataloader, valid_dataloader, is_pnn=False, tag=None):
         """
         Normal model training process, without modifing the loss function.
