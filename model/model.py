@@ -220,6 +220,7 @@ class MLP_PNN(nn.Module):
         self.input_size = input_size
         self.cols = nn.ModuleList()
         self.stft_layer = STFT(self.filter_length, self.hop_length)
+        self.hsize_list = []
 
     def __spectrogram__(self, real, imag):
         spectrogram = torch.sqrt(real ** 2 + imag ** 2)
@@ -230,9 +231,10 @@ class MLP_PNN(nn.Module):
             col.freeze() # freeze all previous columns.
 
         col_id = len(self.cols) # create new column.
-        col = MLP_Column(self.input_size, num_class, col_id=col_id, hsize=hsize)
+        self.hsize_list.append(hsize)
+        col = MLP_Column(self.input_size, num_class, self.hsize_list, col_id=col_id)
         self.cols.append(col)
-
+        
     def forward(self, waveform, task_id, lateral_weights=None):
         if lateral_weights is None:
             lateral_weights = [1 for _ in range(task_id)]
@@ -247,16 +249,18 @@ class MLP_Column(nn.Module):
     The columns of each learning tasks.
     In the code we use a hidden layer of size 128 for task#1 and 32 for all the subsequent tasks.
     """
-    def __init__(self, input_size, num_class, col_id=0, hsize=128):
+    def __init__(self, input_size, num_class, hsize_list, col_id=0):
         super().__init__()
-        self.l1 = nn.Linear(input_size, hsize)
-        self.l2 = nn.Linear(hsize, num_class)
+        self.hsize_list = hsize_list
+        self.l1 = nn.Linear(input_size, self.hsize_list[-1])
+        self.l2 = nn.Linear(self.hsize_list[-1], num_class)
         self.Us = nn.ModuleList()
         self.col_id = col_id
 
-        for col_i in range(self.col_id):
-            h = 128 if col_i == 0 else 32 # setup a small column size (32) for afterward columns.
-            lateral = nn.Linear(h, num_class)
+        print(self.hsize_list)
+
+        for size in self.hsize_list:
+            lateral = nn.Linear(size, num_class)
             self.Us.append(lateral)
 
     def add_lateral(self, x, prev_cols, lateral_weights):
