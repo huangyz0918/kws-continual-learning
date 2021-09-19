@@ -126,7 +126,10 @@ class Trainer:
             self.model.train()
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
-                logits = self.model(waveform)
+                if is_pnn:
+                    logits = self.model(waveform, task_id)
+                else:
+                    logits = self.model(waveform)
                 self.optimizer.zero_grad()
                 loss = self.criterion(logits, labels)
                 loss.backward()

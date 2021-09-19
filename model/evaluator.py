@@ -43,9 +43,9 @@ class Evaluator:
         with_lateral_con: test on the task with/without lateral connections.
         """
         if with_lateral_con:
-            l_w = [1] * id
+            l_w = [1] * task_id
         else: 
-            l_w = [0] * id
+            l_w = [0] * task_id
 
         self.model.eval()
         for batch_idx, (waveform, labels) in tqdm(enumerate(data_loader)):

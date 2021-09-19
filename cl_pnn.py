@@ -42,45 +42,36 @@ if __name__ == "__main__":
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
     neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'PNN'], params=vars(parameters))
-
-    # build a multi-head setting for learning process.
-    total_class_list = []
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
-    for x in learning_tasks:
-        total_class_list += x
-    total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
     class_list = []
-    for task in learning_tasks:
-        class_list += task
-    class_encoding = {category: index for index, category in enumerate(class_list)}
+    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
 
     # initializing the PNN model.
     model = PNN_Net(256, 129, 129 * 125)
     # start continuous learning.
-    learned_class_list = []
+    model.add_column(len(learning_tasks[0])) # add the first column for the PNN.
     trainer = Trainer(parameters, model)
+    learned_class_list = []
     for task_id, task_class in enumerate(learning_tasks):
+        print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
+        class_encoding = {category: index for index, category in enumerate(task_class)}
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
         # smaller column sizes from 2nd task inwards to limit expansion.
         if task_id > 0:
-            trainer.model.add_column(hsize=32)
-        else: 
-            trainer.model.add_column()
-
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
-        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+            trainer.model.add_column(len(task_class), hsize=32)
         # fine-tune the whole model.
         trainer.model_train(task_id, train_loader, test_loader, is_pnn=True, tag=f'task{task_id}')
         # start evaluating the CL on previous tasks.
         total_acc = 0
-        for val_id, keyword in enumerate(class_list):
-            print(f">>>   Testing on keyword id {val_id}; Keywords: {keyword}")
-            _, val_loader = get_dataloader_keyword(parameters.dpath, [keyword], class_encoding, parameters.batch)
-            evaluator = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}')
+        for val_id in range(task_id + 1):
+            print(f">>>   Testing on task {val_id}, Keywords: {learning_tasks[val_id]}")
+            test_encoding = {category: index for index, category in enumerate(learning_tasks[val_id])}
+            _, val_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], test_encoding, parameters.batch)
+            evaluator = Evaluator(trainer.model, tag=f't{task_id}v{val_id}')
             if parameters.lc:
                 log_data = evaluator.pnn_evaluate(val_id, val_loader, with_lateral_con=True)
             else:
                 log_data = evaluator.pnn_evaluate(val_id, val_loader)
-            neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
+            neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
-        print(f">>>   Average Accuracy: {total_acc / len(class_list) * 100}")
+        print(f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}")

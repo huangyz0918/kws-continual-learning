@@ -220,39 +220,28 @@ class PNN_Net(nn.Module):
         self.hop_length = hop_length
         self.input_size = input_size
         self.cols = nn.ModuleList()
+        self.stft_layer = STFT(self.filter_length, self.hop_length)
+
+    def __spectrogram__(self, real, imag):
+        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
+        return spectrogram
 
     def add_column(self, num_class, hsize=128):
         for col in self.cols:
             col.freeze() # freeze all previous columns.
 
         col_id = len(self.cols) # create new column.
-        col = STFT_Column(col_id, self.filter_length, self.hop_length, 
-                            self.input_size, num_class, hsize)
+        col = Column(self.input_size, num_class, col_id=col_id, hsize=hsize)
         self.cols.append(col)
 
-    def forward(self, x, id, lateral_weights=None):
+    def forward(self, waveform, task_id, lateral_weights=None):
         if lateral_weights is None:
-            lateral_weights = [1 for _ in range(id)]
+            lateral_weights = [1 for _ in range(task_id)]
 
-        col = self.cols[id]
-        return col(x, self.cols[:id], lateral_weights)
-
-
-class STFT_Column(nn.Module):
-    def __init__(self, col_id, filter_length, hop_length, input_size, num_classes, hsize):
-        super(STFT_Column, self).__init__()
-        self.stft_layer = STFT(filter_length, hop_length)
-        self.column = Column(input_size, num_classes, col_id=col_id, hsize=hsize)
-
-    def __spectrogram__(self, real, imag):
-        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
-        return spectrogram
-
-    def forward(self, waveform, prev_cols, lateral_weights=None):
+        col = self.cols[task_id]
         real, imag = self.stft_layer(waveform)
         spectrogram = self.__spectrogram__(real, imag)
-        logits = self.column(spectrogram, prev_cols, lateral_weights)
-        return logits
+        return col(spectrogram, self.cols[:task_id], lateral_weights)
 
 class Column(nn.Module):
     """
