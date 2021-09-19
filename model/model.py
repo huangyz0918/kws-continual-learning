@@ -209,8 +209,7 @@ class MFCC_RNN(nn.Module):
         logits = self.rnn(mel_sepctogram)
         return logits
 
-############################################### PNN Experimental #########################################
-class PNN_Net(nn.Module):
+class MLP_PNN(nn.Module):
     """
     Basic PNN network structure.
     """
@@ -231,7 +230,7 @@ class PNN_Net(nn.Module):
             col.freeze() # freeze all previous columns.
 
         col_id = len(self.cols) # create new column.
-        col = Column(self.input_size, num_class, col_id=col_id, hsize=hsize)
+        col = MLP_Column(self.input_size, num_class, col_id=col_id, hsize=hsize)
         self.cols.append(col)
 
     def forward(self, waveform, task_id, lateral_weights=None):
@@ -243,7 +242,7 @@ class PNN_Net(nn.Module):
         spectrogram = self.__spectrogram__(real, imag)
         return col(spectrogram, self.cols[:task_id], lateral_weights)
 
-class Column(nn.Module):
+class MLP_Column(nn.Module):
     """
     The columns of each learning tasks.
     In the code we use a hidden layer of size 128 for task#1 and 32 for all the subsequent tasks.

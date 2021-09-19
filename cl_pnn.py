@@ -1,5 +1,5 @@
 """
-Continuous learning with TCResNet-PNN.
+Continuous learning with MLP-PNN.
 
 Reference: Progressive Neural Networks (Google DeepMind)
 
@@ -11,7 +11,7 @@ import neptune
 import argparse
 import torch 
 import torch.nn as nn
-from model import PNN_Net
+from model import MLP_PNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Input optional guidance for training")
     parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
     parser.add_argument("--lc", default=False, action='store_true', help="Test on the task with/without lateral connections")
-    parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
+    parser.add_argument("--lr", default=0.2, type=float, help="Learning rate")
     parser.add_argument("--batch", default=128, type=int, help="Training batch size")
     parser.add_argument("--step", default=30, type=int, help="Training step size")
     parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
 
     # initializing the PNN model.
-    model = PNN_Net(256, 129, 129 * 125)
+    model = MLP_PNN(256, 129, 129 * 125)
     # start continuous learning.
     model.add_column(len(learning_tasks[0])) # add the first column for the PNN.
     trainer = Trainer(parameters, model)
