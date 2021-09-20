@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 
 from .util import snr_noise
 
+
 class SpeechCommandDataset(Dataset):
     def __init__(self, datapath, filename, is_training, class_list, class_encoding):
         super(SpeechCommandDataset, self).__init__()
@@ -80,7 +81,8 @@ class SpeechCommandDataset(Dataset):
 
 
 class RehearsalDataset(Dataset):
-    def __init__(self, datapath, filename, is_training, class_list, class_encoding, replay_class_list, replay_ratio=0.1):
+    def __init__(self, datapath, filename, is_training, class_list, class_encoding, replay_class_list,
+                 replay_ratio=0.1):
         super(RehearsalDataset, self).__init__()
         """
             Replay the historical data to overcome forgetting issue.
@@ -169,6 +171,7 @@ class RehearsalDataset(Dataset):
 
         return waveform, label
 
+
 class ContinualNoiseDataset(Dataset):
     """
     FIXME:
@@ -180,6 +183,7 @@ class ContinualNoiseDataset(Dataset):
     is_training: True or False
     class_list: the list of model training keywords
     """
+
     def __init__(self, datapath, filename, is_training, class_list, noise_type=0, snr_db=10):
         super(ContinualNoiseDataset, self).__init__()
         self.classes = class_list
@@ -220,7 +224,7 @@ class ContinualNoiseDataset(Dataset):
     def load_audio(self, speech_path):
         if self.is_training == True:
             return snr_noise(speech_path, self.noise_dataset[self.noise_type],
-                                snr_db=self.noise_snr, sample_length=self.sample_length)
+                             snr_db=self.noise_snr, sample_length=self.sample_length)
 
     def one_hot(self, speech_category):
         encoding = self.class_encoding[speech_category]

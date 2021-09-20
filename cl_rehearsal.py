@@ -7,10 +7,8 @@ Replay the historical data to overcome catastrophic forgetting.
 
 import neptune
 import argparse
-import torch.nn as nn
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
-from model import Trainer, Evaluator, get_dataloader_keyword, get_dataloader_replay
-
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import Trainer, Evaluator, get_dataloader_replay
 
 if __name__ == "__main__":
     def options(config):
@@ -23,7 +21,7 @@ if __name__ == "__main__":
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
         parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
 
-        parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
+        parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
@@ -32,9 +30,10 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed", 
+
+    class_list_1 = ["yes", "no", "nine", "three", "bed",
                     "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin", 
+                    "left", "right", "seven", "six", "marvin",
                     "on", "off", "house", "zero", "sheila"]
     class_list_2 = ["stop", "go"]
     class_list_3 = ["dog", "cat"]
@@ -50,7 +49,8 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Rehearsal'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Rehearsal'],
+                              params=vars(parameters))
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     for task in learning_tasks:
         class_list += task
     class_encoding = {category: index for index, category in enumerate(class_list)}
-    
+
     # load the model.
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -73,7 +73,8 @@ if __name__ == "__main__":
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
-        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000,
+                         num_classes=total_class_num)  # sample length for the dataset is 16000.
     else:
         model = None
 
@@ -85,11 +86,15 @@ if __name__ == "__main__":
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         if parameters.ratio == 1:
-            train_loader, test_loader = get_dataloader_replay(parameters.dpath, learned_class_list, learned_class_list, class_encoding, 
-                                                                replay_ratio=parameters.ratio, batch_size=parameters.batch)
+            train_loader, test_loader = get_dataloader_replay(parameters.dpath, learned_class_list, learned_class_list,
+                                                              class_encoding,
+                                                              replay_ratio=parameters.ratio,
+                                                              batch_size=parameters.batch)
         else:
-            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list, class_encoding,
-                                                                replay_ratio=parameters.ratio, batch_size=parameters.batch)
+            train_loader, test_loader = get_dataloader_replay(parameters.dpath, task_class, learned_class_list,
+                                                              class_encoding,
+                                                              replay_ratio=parameters.ratio,
+                                                              batch_size=parameters.batch)
         # fine-tune the whole model.
         trainer.model_train(task_id, train_loader, test_loader, tag=task_id)
         # the task evaluation.

@@ -12,10 +12,8 @@ import argparse
 import numpy as np
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
@@ -43,7 +41,7 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size") 
+        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
         parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
@@ -59,9 +57,10 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed", 
+
+    class_list_1 = ["yes", "no", "nine", "three", "bed",
                     "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin", 
+                    "left", "right", "seven", "six", "marvin",
                     "on", "off", "house", "zero", "sheila"]
     class_list_2 = ["stop", "go"]
     class_list_3 = ["dog", "cat"]
@@ -77,7 +76,8 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'],
+                              params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     for task in learning_tasks:
         class_list += task
     class_encoding = {category: index for index, category in enumerate(class_list)}
-    
+
     # load the model.
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -101,10 +101,11 @@ if __name__ == "__main__":
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
-        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000,
+                         num_classes=total_class_num)  # sample length for the dataset is 16000.
     else:
         model = None
-        
+
     # continuous learning by GEM.
     learned_class_list = []
     trainer = Trainer(parameters, model)
@@ -117,10 +118,11 @@ if __name__ == "__main__":
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
+                                                           parameters.batch)
         # starting training.
-        trainer.gem_train(task_id, train_loader, test_loader, gem_buffer, grad_dims, 
-                            grads_cs, grads_da, parameters.gamma, tag=task_id)
+        trainer.gem_train(task_id, train_loader, test_loader, gem_buffer, grad_dims,
+                          grads_cs, grads_da, parameters.gamma, tag=task_id)
         # update the GEM parameters.
         on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.

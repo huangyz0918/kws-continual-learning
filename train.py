@@ -10,7 +10,6 @@ import argparse
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, get_dataloader_keyword
 
-
 if __name__ == "__main__":
     def options(config):
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
@@ -29,6 +28,7 @@ if __name__ == "__main__":
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
         return args
+
 
     class_list = ["yes", "no", "unknown", "silence"]
 
@@ -51,10 +51,11 @@ if __name__ == "__main__":
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=len(class_list))
     elif parameters.model == "mfcc-rnn":
-        model = MFCC_RNN(n_mfcc=40, sampling_rate=16000, num_classes=len(class_list), n_layers=3) # sample length for the dataset is 16000.
+        model = MFCC_RNN(n_mfcc=40, sampling_rate=16000, num_classes=len(class_list),
+                         n_layers=3)  # sample length for the dataset is 16000.
     else:
         model = None
 
     class_encoding = {category: index for index, category in enumerate(class_list)}
     train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, class_encoding, parameters.batch)
-    Trainer(parameters, model).model_train(0, train_loader, test_loader, tag='CF') # task id: 0
+    Trainer(parameters, model).model_train(0, train_loader, test_loader, tag='CF')  # task id: 0

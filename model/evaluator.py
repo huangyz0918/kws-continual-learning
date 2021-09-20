@@ -15,8 +15,8 @@ class Evaluator:
         self.class_list = class_list
         self.device = torch.device('cpu')
         self.model = model.to(self.device)
-        self.log_data =  {"test_accuracy": 0, "test_total": 0, "test_correct": 0}
-        
+        self.log_data = {"test_accuracy": 0.0, "test_total": 0, "test_correct": 0}
+
     def evaluate(self, data_loader):
         self.model.eval()
         for batch_idx, (waveform, labels) in tqdm(enumerate(data_loader)):
@@ -34,9 +34,8 @@ class Evaluator:
             print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
         else:
             print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
-            
-        return self.log_data
 
+        return self.log_data
 
     def pnn_evaluate(self, task_id, data_loader, with_lateral_con=False):
         """
@@ -44,7 +43,7 @@ class Evaluator:
         """
         if with_lateral_con:
             l_w = [1] * task_id
-        else: 
+        else:
             l_w = [0] * task_id
 
         self.model.eval()
@@ -52,7 +51,7 @@ class Evaluator:
             with torch.no_grad():
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 logits = self.model(waveform, task_id, lateral_weights=l_w)
-                
+
                 _, predict = torch.max(logits.data, 1)
                 self.log_data["test_total"] += labels.size(0)
                 self.log_data["test_correct"] += (predict == labels).sum().item()
@@ -63,5 +62,5 @@ class Evaluator:
             print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
         else:
             print(f'>>>   Test Acc: {100 * self.log_data["test_accuracy"]}')
-            
+
         return self.log_data

@@ -7,10 +7,8 @@ Continuous learning with basic finetuning.
 
 import neptune
 import argparse
-import torch.nn as nn
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
-
 
 if __name__ == "__main__":
     def options(config):
@@ -31,9 +29,10 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed", 
+
+    class_list_1 = ["yes", "no", "nine", "three", "bed",
                     "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin", 
+                    "left", "right", "seven", "six", "marvin",
                     "on", "off", "house", "zero", "sheila"]
     class_list_2 = ["stop", "go"]
     class_list_3 = ["dog", "cat"]
@@ -44,13 +43,14 @@ if __name__ == "__main__":
     config = {
         "tc-resnet8": [16, 24, 32, 48],
         "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]
-        }
+    }
 
     parameters = options(config)
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'],
+                              params=vars(parameters))
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     for task in learning_tasks:
         class_list += task
     class_encoding = {category: index for index, category in enumerate(class_list)}
-    
+
     # load the model.
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -73,7 +73,8 @@ if __name__ == "__main__":
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
-        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000,
+                         num_classes=total_class_num)  # sample length for the dataset is 16000.
     else:
         model = None
 
@@ -82,7 +83,8 @@ if __name__ == "__main__":
     trainer = Trainer(parameters, model)
     for task_id, task_class in enumerate(learning_tasks):
         learned_class_list += task_class
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
+                                                           parameters.batch)
         print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
         # fine-tune the whole model.
         trainer.model_train(task_id, train_loader, test_loader, tag=f'task{task_id}')

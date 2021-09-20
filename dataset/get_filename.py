@@ -5,22 +5,22 @@ from random import randrange
 from os import listdir
 from os.path import isfile, join
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Input optional guidance for training")
     parser.add_argument("--dpath", default="./data", type=str, help="The path of dataset")
     parser.add_argument("--train", default=0.8, type=float, help="The ratio of splited training data")
-    parser.add_argument("--silence", default=0, type=float, help="The ratio of splited silence data in all training data")
+    parser.add_argument("--silence", default=0, type=float,
+                        help="The ratio of splited silence data in all training data")
     args = parser.parse_args()
 
-    class_list = [ 
-                    "yes", "no", "nine", "three", "bed", 
-                    "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin", 
-                    "on", "off", "house", "zero", "sheila",
-                    "stop", "go", "dog", "cat", "two",
-                    "bird", "eight", "five", "tree", "one"
-                ]
+    class_list = [
+        "yes", "no", "nine", "three", "bed",
+        "up", "down", "wow", "happy", "four",
+        "left", "right", "seven", "six", "marvin",
+        "on", "off", "house", "zero", "sheila",
+        "stop", "go", "dog", "cat", "two",
+        "bird", "eight", "five", "tree", "one"
+    ]
 
     splits_path = "./splits"
     Path(splits_path).mkdir(parents=True, exist_ok=True)

@@ -11,16 +11,14 @@ import neptune
 import argparse
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import get_params
 
 
-def on_task_update(model, big_omega, small_omega, 
-                    cached_checkpoint, device, elambda=0):
+def on_task_update(model, big_omega, small_omega,
+                   cached_checkpoint, device, elambda=0):
     """
     Update the regularization after each task learning.
     """
@@ -53,9 +51,10 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed", 
+
+    class_list_1 = ["yes", "no", "nine", "three", "bed",
                     "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin", 
+                    "left", "right", "seven", "six", "marvin",
                     "on", "off", "house", "zero", "sheila"]
     class_list_2 = ["stop", "go"]
     class_list_3 = ["dog", "cat"]
@@ -71,7 +70,8 @@ if __name__ == "__main__":
 
     # initialize and setup Neptune
     neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'SI'], params=vars(parameters))
+    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'SI'],
+                              params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     for task in learning_tasks:
         class_list += task
     class_encoding = {category: index for index, category in enumerate(class_list)}
-    
+
     # load the model.
     if parameters.model == "stft":
         model = STFT_TCResnet(
@@ -95,7 +95,8 @@ if __name__ == "__main__":
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
-        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000, num_classes=total_class_num) # sample length for the dataset is 16000.
+        model = MFCC_RNN(n_mfcc=12, sampling_rate=16000,
+                         num_classes=total_class_num)  # sample length for the dataset is 16000.
     else:
         model = None
 
@@ -109,13 +110,15 @@ if __name__ == "__main__":
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding, parameters.batch)
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
+                                                           parameters.batch)
         # starting training.
-        small_omega = trainer.si_train(task_id, train_loader, test_loader, 
-                                        big_omega, small_omega, cached_checkpoint, coefficient=parameters.c, tag=task_id)
+        small_omega = trainer.si_train(task_id, train_loader, test_loader,
+                                       big_omega, small_omega, cached_checkpoint, coefficient=parameters.c, tag=task_id)
         # update the SI parameters.
-        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, small_omega, 
-                                                                    cached_checkpoint, trainer.device, parameters.elambda)
+        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, small_omega,
+                                                                   cached_checkpoint, trainer.device,
+                                                                   parameters.elambda)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

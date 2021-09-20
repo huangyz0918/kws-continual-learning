@@ -9,13 +9,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import List
 from einops import rearrange
-from torchaudio.transforms import Spectrogram
-from torchaudio.transforms import MelSpectrogram
 from torchaudio.transforms import MFCC
 
-from .util import STFT, compute_mfcc
+from .util import STFT
 
 
 class RNN(nn.Module):
@@ -41,11 +38,11 @@ class RNN(nn.Module):
 class MLP(nn.Module):
     def __init__(self, hop_length, audio_time, n_class):
         super().__init__()
-                
+
         self.input_fc = nn.Linear(hop_length * audio_time, 512)
         self.hidden_fc = nn.Linear(512, 100)
         self.output_fc = nn.Linear(100, n_class)
-        
+
     def forward(self, inputs):
         batch_size = inputs.shape[0]
         inputs = inputs.view(batch_size, -1)
@@ -199,7 +196,7 @@ class MFCC_RNN(nn.Module):
         super(MFCC_RNN, self).__init__()
         self.sampling_rate = sampling_rate
         self.num_classes = num_classes
-        self.n_mfcc = n_mfcc # feature length
+        self.n_mfcc = n_mfcc  # feature length
 
         self.mfcc_layer = MFCC(sample_rate=self.sampling_rate, n_mfcc=self.n_mfcc, log_mels=True)
         self.rnn = RNN(self.n_mfcc, self.num_classes, hidden_size=hidden_size, n_layers=n_layers)
@@ -209,10 +206,12 @@ class MFCC_RNN(nn.Module):
         logits = self.rnn(mel_sepctogram)
         return logits
 
+
 class MLP_PNN(nn.Module):
     """
     Basic PNN network structure.
     """
+
     def __init__(self, filter_length, hop_length, input_size):
         super().__init__()
         self.filter_length = filter_length
@@ -228,13 +227,13 @@ class MLP_PNN(nn.Module):
 
     def add_column(self, num_class, hsize=128):
         for col in self.cols:
-            col.freeze() # freeze all previous columns.
+            col.freeze()  # freeze all previous columns.
 
-        col_id = len(self.cols) # create new column.
+        col_id = len(self.cols)  # create new column.
         self.hsize_list.append(hsize)
         col = MLP_Column(self.input_size, num_class, self.hsize_list, col_id=col_id)
         self.cols.append(col)
-        
+
     def forward(self, waveform, task_id, lateral_weights=None):
         if lateral_weights is None:
             lateral_weights = [1 for _ in range(task_id)]
@@ -244,11 +243,13 @@ class MLP_PNN(nn.Module):
         spectrogram = self.__spectrogram__(real, imag)
         return col(spectrogram, self.cols[:task_id], lateral_weights)
 
+
 class MLP_Column(nn.Module):
     """
     The columns of each learning tasks.
     In the code we use a hidden layer of size 128 for task#1 and 32 for all the subsequent tasks.
     """
+
     def __init__(self, input_size, num_class, hsize_list, col_id=0):
         super().__init__()
         self.hsize_list = hsize_list
@@ -289,11 +290,13 @@ class MLP_Column(nn.Module):
         x += self.add_lateral(x, prev_cols=prev_cols, lateral_weights=lateral_weights)
         return x
 
+
 ######################################## TC-PNN Experimental ######################################
 class Res_Column(nn.Module):
     """
-    The columns of each learning tasks.
+    The TC-ResNet columns of each learning tasks.
     """
+
     def __init__(self, num_class, bins, n_channels, col_id=0):
         super().__init__()
         self.conv = nn.Conv2d(bins, n_channels[0], kernel_size=(1, 3), padding=(0, 1), bias=False)
@@ -345,6 +348,7 @@ class Res_Column(nn.Module):
         out += self.add_lateral(out, prev_cols=prev_cols, lateral_weights=lateral_weights)
         return out
 
+
 class TC_PNN(nn.Module):
     def __init__(self, bins, n_channels, channel_scale, filter_length, hop_length):
         super(TC_PNN, self).__init__()
@@ -360,9 +364,9 @@ class TC_PNN(nn.Module):
 
     def add_column(self, num_class):
         for col in self.cols:
-            col.freeze() # freeze all previous columns.
+            col.freeze()  # freeze all previous columns.
 
-        col_id = len(self.cols) # create new column.
+        col_id = len(self.cols)  # create new column.
         col = Res_Column(num_class, self.bins, [int(cha * self.channel_scale) for cha in self.n_channels], col_id)
         self.cols.append(col)
 

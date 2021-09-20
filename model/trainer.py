@@ -11,12 +11,10 @@ from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from .dataloader import SpeechCommandDataset, ContinualNoiseDataset, RehearsalDataset
-from .model import TCResNet, STFT_TCResnet, MFCC_TCResnet
-from .util import readlines, parameter_number, prepare_device
+from .util import readlines, prepare_device
 from .util import get_params, get_gards, store_grad, overwrite_grad, project2cone2, project
 
 
@@ -47,9 +45,9 @@ def get_dataloader_replay(data_path, class_list, replay_list, class_encoding, re
         train_filename = readlines(f"{data_path}/splits/train.txt")
         valid_filename = readlines(f"{data_path}/splits/valid.txt")
         train_dataset = RehearsalDataset(f"{data_path}/data", train_filename, True, class_list,
-                                            class_encoding, replay_list, replay_ratio=replay_ratio)
-        valid_dataset = RehearsalDataset(f"{data_path}/data", valid_filename, False, class_list, 
-                                            class_encoding, replay_list, replay_ratio=replay_ratio)
+                                         class_encoding, replay_list, replay_ratio=replay_ratio)
+        valid_dataset = RehearsalDataset(f"{data_path}/data", valid_filename, False, class_list,
+                                         class_encoding, replay_list, replay_ratio=replay_ratio)
 
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
@@ -67,7 +65,8 @@ def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_
         train_filename = readlines(f"{data_path}/splits/train.txt")
         valid_filename = readlines(f"{data_path}/splits/valid.txt")
         train_dataset = ContinualNoiseDataset(f"{data_path}/data", train_filename, True, class_list, noise_type, snr_db)
-        valid_dataset = ContinualNoiseDataset(f"{data_path}/data", valid_filename, False, class_list, noise_type, snr_db)
+        valid_dataset = ContinualNoiseDataset(f"{data_path}/data", valid_filename, False, class_list, noise_type,
+                                              snr_db)
 
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
@@ -75,10 +74,12 @@ def get_dataloader_noise(data_path, class_list, batch_size=1, noise_type=0, snr_
     else:
         raise ValueError("the class list is empty!")
 
+
 class Trainer:
     """
     The KWS model training class.
     """
+
     def __init__(self, opt, model):
         self.opt = opt
         self.lr = opt.lr
@@ -99,8 +100,8 @@ class Trainer:
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
         self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         self.loss_name = {
-            "train_loss": 0, "train_accuracy": 0, "train_total": 0, "train_correct": 0,
-            "valid_loss": 0, "valid_accuracy": 0, "valid_total": 0, "valid_correct": 0}
+            "train_loss": 0.0, "train_accuracy": 0.0, "train_total": 0, "train_correct": 0,
+            "valid_loss": 0.0, "valid_accuracy": 0.0, "valid_total": 0, "valid_correct": 0}
 
     def model_save(self):
         save_directory = os.path.join("./model_save", self.opt.save)
@@ -108,14 +109,15 @@ class Trainer:
             os.makedirs(save_directory)
 
         if self.loss_name["valid_accuracy"] >= 90.0:
-            torch.save(self.mode.state_dict(), os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
+            torch.save(self.model.state_dict(),
+                       os.path.join(save_directory, "best_" + str(self.loss_name["valid_accuracy"]) + ".pt"))
 
         if (self.epo + 1) % self.opt.freq == 0:
             torch.save(self.model.state_dict(), os.path.join(save_directory, "model" + str(self.epoch + 1) + ".pt"))
 
         if (self.epo + 1) == self.epoch:
-            torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt")) 
-            
+            torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt"))
+
     def model_train(self, task_id, train_dataloader, valid_dataloader, is_pnn=False, tag=None):
         """
         Normal model training process, without modifing the loss function.
@@ -163,16 +165,15 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            if tag: 
+            if tag:
                 neptune.log_metric(f'{tag}-epoch', self.epo)
                 neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
                 neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-
-    def ewc_train(self, task_id, train_dataloader, valid_dataloader, 
-                    fisher_dict, optpar_dict, ewc_lambda, tag=None):
+    def ewc_train(self, task_id, train_dataloader, valid_dataloader,
+                  fisher_dict, optpar_dict, ewc_lambda, tag=None):
         """
         Using Elastic Weight Consolidation (EWC) as the continual learning method.
 
@@ -193,7 +194,7 @@ class Trainer:
             self.model.train()
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
-                
+
                 self.optimizer.zero_grad()
                 logits = self.model(waveform)
                 loss = self.criterion(logits, labels)
@@ -233,16 +234,15 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            if tag: 
+            if tag:
                 neptune.log_metric(f'{tag}-epoch', self.epo)
                 neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
                 neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-
-    def si_train(self, task_id, train_dataloader, valid_dataloader, 
-                    big_omega, small_omega, cached_checkpoint, coefficient=1, tag=None):
+    def si_train(self, train_dataloader, valid_dataloader,
+                 big_omega, small_omega, cached_checkpoint, coefficient=1, tag=None):
         """
         Using Synaptic Intelligence (SI) as the continual learning method.
 
@@ -261,12 +261,11 @@ class Trainer:
             self.loss_name.update({key: 0 for key in self.loss_name})
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
-                
+
                 self.optimizer.zero_grad()
                 logits = self.model(waveform)
 
                 # calculate the loss penalty.
-                penalty = None
                 if big_omega is None:
                     penalty = torch.tensor(0.0).to(self.device)
                 else:
@@ -308,7 +307,7 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            if tag: 
+            if tag:
                 neptune.log_metric(f'{tag}-epoch', self.epo)
                 neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
                 neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
@@ -317,9 +316,8 @@ class Trainer:
 
         return updated_small_omega
 
-
-    def gem_train(self, task_id, train_dataloader, valid_dataloader, buffer, 
-                    grad_dims, grads_cs, grads_da, gamma, tag=None):
+    def gem_train(self, train_dataloader, valid_dataloader, buffer,
+                  grad_dims, grads_cs, grads_da, gamma, tag=None):
         """
         Using Gradient Episodic Memory for Continual Learning (GEM) as the continual learning method.
 
@@ -395,15 +393,15 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            if tag: 
+            if tag:
                 neptune.log_metric(f'{tag}-epoch', self.epo)
                 neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
                 neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-    def agem_train(self, task_id, train_dataloader, valid_dataloader, buffer, 
-                    grad_dims, grad_xy, grad_er, tag=None):
+    def agem_train(self, train_dataloader, valid_dataloader, buffer,
+                   grad_dims, grad_xy, grad_er, tag=None):
         """
         Using Gradient Episodic Memory for Continual Learning (GEM) as the continual learning method.
 
@@ -432,7 +430,7 @@ class Trainer:
                 # get the rehearsal data.
                 if not buffer.is_empty():
                     store_grad(self.model.parameters(), grad_xy, grad_dims)
-                    
+
                     buf_inputs, buf_labels = buffer.get_data(self.batch)
                     self.optimizer.zero_grad()
                     buf_outputs = self.model.forward(buf_inputs)
@@ -474,7 +472,7 @@ class Trainer:
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
                                     self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
 
-            if tag: 
+            if tag:
                 neptune.log_metric(f'{tag}-epoch', self.epo)
                 neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
                 neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])

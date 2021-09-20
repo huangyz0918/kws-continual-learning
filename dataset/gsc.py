@@ -4,7 +4,6 @@ import argparse
 from pathlib import Path
 from collections import defaultdict
 
-
 UNKNOWN_WORD_LABEL = 'unknown'
 BACKGROUND_NOISE_LABEL = '_silence_'
 BACKGROUND_NOISE_DIR_NAME = '_background_noise_'
