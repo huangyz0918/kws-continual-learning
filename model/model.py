@@ -257,8 +257,6 @@ class MLP_Column(nn.Module):
         self.Us = nn.ModuleList()
         self.col_id = col_id
 
-        print(self.hsize_list)
-
         for size in self.hsize_list:
             lateral = nn.Linear(size, num_class)
             self.Us.append(lateral)
@@ -290,3 +288,89 @@ class MLP_Column(nn.Module):
         x = self.l2(x)
         x += self.add_lateral(x, prev_cols=prev_cols, lateral_weights=lateral_weights)
         return x
+
+######################################## TC-PNN Experimental ######################################
+class Res_Column(nn.Module):
+    """
+    The columns of each learning tasks.
+    """
+    def __init__(self, num_class, bins, n_channels, col_id=0):
+        super().__init__()
+        self.conv = nn.Conv2d(bins, n_channels[0], kernel_size=(1, 3), padding=(0, 1), bias=False)
+        layers = []
+        for in_channels, out_channels in zip(n_channels[0:-1], n_channels[1:]):
+            layers.append(Residual(in_channels, out_channels))
+        self.layers = nn.Sequential(*layers)
+
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.linear = nn.Linear(n_channels[-1], num_class)
+
+        self.Us = nn.ModuleList()
+        self.col_id = col_id
+
+        for _ in range(self.col_id):
+            lateral = nn.Linear(n_channels[-1], num_class)
+            self.Us.append(lateral)
+
+    def add_lateral(self, inputs, prev_cols, lateral_weights):
+        outputs = torch.zeros_like(inputs)
+        for col_id, col in enumerate(prev_cols):
+            input = col.outputs
+            if lateral_weights:
+                input = input * lateral_weights[col_id]
+            layer = self.Us[col_id]
+            outputs += layer(input)
+        return outputs
+
+    def freeze(self):
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, inputs, prev_cols, lateral_weights):
+        for i, col in enumerate(prev_cols):
+            l_w = lateral_weights[:i + 1]
+            col(inputs, prev_cols[:i], l_w)
+
+        B, C, H, W = inputs.shape
+        inputs = rearrange(inputs, "b c f t -> b f c t", c=C, f=H)
+        out = self.conv(inputs)
+        out = self.layers(out)
+
+        out = self.pool(out)
+        out = out.view(out.shape[0], -1)
+
+        self.outputs = out
+
+        out = self.linear(out)
+        out += self.add_lateral(out, prev_cols=prev_cols, lateral_weights=lateral_weights)
+        return out
+
+class TC_PNN(nn.Module):
+    def __init__(self, bins, n_channels, channel_scale, filter_length, hop_length):
+        super(TC_PNN, self).__init__()
+        self.bins = bins
+        self.n_channels = n_channels
+        self.cols = nn.ModuleList()
+        self.stft_layer = STFT(filter_length, hop_length)
+        self.channel_scale = channel_scale
+
+    def __spectrogram__(self, real, imag):
+        spectrogram = torch.sqrt(real ** 2 + imag ** 2)
+        return spectrogram
+
+    def add_column(self, num_class):
+        for col in self.cols:
+            col.freeze() # freeze all previous columns.
+
+        col_id = len(self.cols) # create new column.
+        col = Res_Column(num_class, self.bins, [int(cha * self.channel_scale) for cha in self.n_channels], col_id)
+        self.cols.append(col)
+
+    def forward(self, waveform, task_id, lateral_weights=None):
+        if lateral_weights is None:
+            lateral_weights = [1 for _ in range(task_id)]
+
+        col = self.cols[task_id]
+        real, imag = self.stft_layer(waveform)
+        spectrogram = self.__spectrogram__(real, imag)
+        return col(spectrogram, self.cols[:task_id], lateral_weights)
