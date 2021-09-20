@@ -4,7 +4,7 @@ Continuous learning with basic finetuning.
 @author huangyz0918
 @date 06/08/2021
 """
-
+import torch
 import neptune
 import argparse
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
@@ -18,9 +18,11 @@ if __name__ == "__main__":
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
+        parser.add_argument("--log", default=False, action='store_true',
+                            help="record the experiment into web neptune.ai")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
 
-        parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
+        parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
@@ -48,9 +50,10 @@ if __name__ == "__main__":
     parameters = options(config)
 
     # initialize and setup Neptune
-    neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'],
-                              params=vars(parameters))
+    if parameters.log:
+        neptune.init('huangyz0918/kws')
+        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'],
+                                  params=vars(parameters))
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -87,13 +90,21 @@ if __name__ == "__main__":
                                                            parameters.batch)
         print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
         # fine-tune the whole model.
-        trainer.model_train(task_id, train_loader, test_loader, tag=f'task{task_id}')
+        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
+        if parameters.log:
+            trainer.model_train(task_id, optimizer, train_loader, test_loader, tag=f'task{task_id}')
+        else:
+            trainer.model_train(task_id, optimizer, train_loader, test_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, keyword in enumerate(class_list):
             print(f">>>   Testing on keyword id {val_id}; Keywords: {keyword}")
             _, val_loader = get_dataloader_keyword(parameters.dpath, [keyword], class_encoding, parameters.batch)
-            log_data = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}').evaluate(val_loader)
-            neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
+            if parameters.log:
+                log_data = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}').evaluate(val_loader)
+            else:
+                log_data = Evaluator(trainer.model).evaluate(val_loader)
+            if parameters.log:
+                neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(class_list) * 100}")

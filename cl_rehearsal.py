@@ -4,7 +4,7 @@ Replay the historical data to overcome catastrophic forgetting.
 @author huangyz0918
 @date 06/08/2021
 """
-
+import torch
 import neptune
 import argparse
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
@@ -20,6 +20,8 @@ if __name__ == "__main__":
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
         parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
+        parser.add_argument("--log", default=False, action='store_true',
+                            help="record the experiment into web neptune.ai")
 
         parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
@@ -96,13 +98,21 @@ if __name__ == "__main__":
                                                               replay_ratio=parameters.ratio,
                                                               batch_size=parameters.batch)
         # fine-tune the whole model.
-        trainer.model_train(task_id, train_loader, test_loader, tag=task_id)
+        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
+        if parameters.log:
+            trainer.model_train(task_id, optimizer, train_loader, test_loader, tag=task_id)
+        else:
+            trainer.model_train(task_id, optimizer, train_loader, test_loader)
         # the task evaluation.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_replay(parameters.dpath, task, learned_class_list, class_encoding)
-            log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
-            neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
+            if parameters.log:
+                log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
+            else:
+                log_data = Evaluator(trainer.model).evaluate(val_loader)
+            if parameters.log:
+                neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")

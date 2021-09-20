@@ -28,8 +28,8 @@ class Evaluator:
                 self.log_data["test_total"] += labels.size(0)
                 self.log_data["test_correct"] += (predict == labels).sum().item()
                 self.log_data["test_accuracy"] = self.log_data["test_correct"] / self.log_data["test_total"]
-
-        neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
+        if self.tag:
+            neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
         if self.class_list:
             print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
         else:
@@ -57,7 +57,8 @@ class Evaluator:
                 self.log_data["test_correct"] += (predict == labels).sum().item()
                 self.log_data["test_accuracy"] = self.log_data["test_correct"] / self.log_data["test_total"]
 
-        neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
+        if self.tag:
+            neptune.log_metric(f'{self.tag}-test_accuracy', self.log_data["test_accuracy"])
         if self.class_list:
             print(f'>>>   Test on {self.class_list}, Acc: {100 * self.log_data["test_accuracy"]}')
         else:

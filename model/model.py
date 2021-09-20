@@ -291,7 +291,6 @@ class MLP_Column(nn.Module):
         return x
 
 
-######################################## TC-PNN Experimental ######################################
 class Res_Column(nn.Module):
     """
     The TC-ResNet columns of each learning tasks.

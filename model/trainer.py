@@ -97,8 +97,6 @@ class Trainer:
             self.model = nn.DataParallel(self.model)
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         self.loss_name = {
             "train_loss": 0.0, "train_accuracy": 0.0, "train_total": 0, "train_correct": 0,
             "valid_loss": 0.0, "valid_accuracy": 0.0, "valid_total": 0, "valid_correct": 0}
@@ -118,24 +116,26 @@ class Trainer:
         if (self.epo + 1) == self.epoch:
             torch.save(self.model.state_dict(), os.path.join(save_directory, "last.pt"))
 
-    def model_train(self, task_id, train_dataloader, valid_dataloader, is_pnn=False, tag=None):
+    def model_train(self, task_id, optimizer, train_dataloader, valid_dataloader, is_pnn=False, tag=None):
         """
         Normal model training process, without modifing the loss function.
         """
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
+                
+                optimizer.zero_grad()
                 if is_pnn:
                     logits = self.model(waveform, task_id)
                 else:
                     logits = self.model(waveform)
-                self.optimizer.zero_grad()
                 loss = self.criterion(logits, labels)
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -159,7 +159,7 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
 
-            self.scheduler.step()
+            scheduler.step()
             self.model_save()
             print(
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
@@ -172,7 +172,7 @@ class Trainer:
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-    def ewc_train(self, task_id, train_dataloader, valid_dataloader,
+    def ewc_train(self, task_id, optimizer, train_dataloader, valid_dataloader,
                   fisher_dict, optpar_dict, ewc_lambda, tag=None):
         """
         Using Elastic Weight Consolidation (EWC) as the continual learning method.
@@ -189,13 +189,14 @@ class Trainer:
             }
         """
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 logits = self.model(waveform)
                 loss = self.criterion(logits, labels)
 
@@ -207,7 +208,7 @@ class Trainer:
                         loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
 
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -228,7 +229,7 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
 
-            self.scheduler.step()
+            scheduler.step()
             self.model_save()
             print(
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
@@ -241,7 +242,7 @@ class Trainer:
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-    def si_train(self, train_dataloader, valid_dataloader,
+    def si_train(self, optimizer, train_dataloader, valid_dataloader,
                  big_omega, small_omega, cached_checkpoint, coefficient=1, tag=None):
         """
         Using Synaptic Intelligence (SI) as the continual learning method.
@@ -256,13 +257,14 @@ class Trainer:
         """
         updated_small_omega = small_omega
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         for self.epo in range(self.epoch):
             self.model.train()
             self.loss_name.update({key: 0 for key in self.loss_name})
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 logits = self.model(waveform)
 
                 # calculate the loss penalty.
@@ -277,7 +279,7 @@ class Trainer:
                 # print("big_omega: ", big_omega, " small_omega: ", updated_small_omega, " penalty: ", penalty)
                 loss.backward()
                 nn.utils.clip_grad.clip_grad_value_(self.model.parameters(), 1)
-                self.optimizer.step()
+                optimizer.step()
 
                 # update the small_omega value.
                 updated_small_omega += self.lr * get_gards(self.model).data ** 2
@@ -301,7 +303,7 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
 
-            self.scheduler.step()
+            scheduler.step()
             self.model_save()
             print(
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
@@ -316,7 +318,7 @@ class Trainer:
 
         return updated_small_omega
 
-    def gem_train(self, train_dataloader, valid_dataloader, buffer,
+    def gem_train(self, optimizer, train_dataloader, valid_dataloader, buffer,
                   grad_dims, grads_cs, grads_da, gamma, tag=None):
         """
         Using Gradient Episodic Memory for Continual Learning (GEM) as the continual learning method.
@@ -331,6 +333,7 @@ class Trainer:
             }
         """
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
@@ -343,7 +346,7 @@ class Trainer:
 
                     for tt in buf_task_labels.unique():
                         # compute gradient on the memory buffer.
-                        self.optimizer.zero_grad()
+                        optimizer.zero_grad()
                         cur_task_inputs = buf_inputs[buf_task_labels == tt]
                         cur_task_labels = buf_labels[buf_task_labels == tt]
                         cur_task_outputs = self.model.forward(cur_task_inputs)
@@ -352,8 +355,8 @@ class Trainer:
                         store_grad(self.model.parameters(), grads_cs[tt], grad_dims)
 
                 # now compute the grad on the current data.
+                optimizer.zero_grad()
                 logits = self.model(waveform)
-                self.optimizer.zero_grad()
                 loss = self.criterion(logits, labels)
                 loss.backward()
 
@@ -366,7 +369,7 @@ class Trainer:
                         project2cone2(grads_da.unsqueeze(1), torch.stack(grads_cs).T, margin=gamma)
                         # copy gradients back.
                         overwrite_grad(self.model.parameters(), grads_da, grad_dims)
-                self.optimizer.step()
+                optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -387,7 +390,7 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
 
-            self.scheduler.step()
+            scheduler.step()
             self.model_save()
             print(
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
@@ -400,7 +403,7 @@ class Trainer:
                 neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
                 neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
 
-    def agem_train(self, train_dataloader, valid_dataloader, buffer,
+    def agem_train(self, optimizer, train_dataloader, valid_dataloader, buffer,
                    grad_dims, grad_xy, grad_er, tag=None):
         """
         Using Gradient Episodic Memory for Continual Learning (GEM) as the continual learning method.
@@ -415,6 +418,7 @@ class Trainer:
             }
         """
         train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
@@ -423,7 +427,7 @@ class Trainer:
 
                 # compute the grad on the current data.
                 logits = self.model(waveform)
-                self.optimizer.zero_grad()
+                optimizer.zero_grad()
                 loss = self.criterion(logits, labels)
                 loss.backward()
 
@@ -432,7 +436,7 @@ class Trainer:
                     store_grad(self.model.parameters(), grad_xy, grad_dims)
 
                     buf_inputs, buf_labels = buffer.get_data(self.batch)
-                    self.optimizer.zero_grad()
+                    optimizer.zero_grad()
                     buf_outputs = self.model.forward(buf_inputs)
                     penalty = self.criterion(buf_outputs, buf_labels)
                     penalty.backward()
@@ -445,7 +449,7 @@ class Trainer:
                     else:
                         overwrite_grad(self.model.parameters(), grad_xy, grad_dims)
 
-                self.optimizer.step()
+                optimizer.step()
 
                 self.loss_name["train_loss"] += loss.item() / train_length
                 _, predict = torch.max(logits.data, 1)
@@ -466,7 +470,7 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
 
-            self.scheduler.step()
+            scheduler.step()
             self.model_save()
             print(
                 self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],

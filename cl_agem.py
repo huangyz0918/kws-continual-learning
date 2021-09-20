@@ -34,12 +34,14 @@ if __name__ == "__main__":
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
         parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
+        parser.add_argument("--log", default=False, action='store_true',
+                            help="record the experiment into web neptune.ai")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
 
-        parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
+        parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
         parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
@@ -66,9 +68,10 @@ if __name__ == "__main__":
     parameters = options(config)
 
     # initialize and setup Neptune
-    neptune.init('huangyz0918/kws')
-    neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'A-GEM'],
-                              params=vars(parameters))
+    if parameters.log:
+        neptune.init('huangyz0918/kws')
+        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'A-GEM'],
+                                  params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
@@ -112,7 +115,12 @@ if __name__ == "__main__":
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
                                                            parameters.batch)
         # starting training.
-        trainer.agem_train(task_id, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er, tag=task_id)
+        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
+        if parameters.log:
+            trainer.agem_train(task_id, optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er,
+                               tag=task_id)
+        else:
+            trainer.agem_train(task_id, optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er)
         # update the A-GEM parameters.
         on_task_update(len(learning_tasks), buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.
@@ -120,7 +128,11 @@ if __name__ == "__main__":
         for val_id, task in enumerate(learning_tasks):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
-            log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
-            neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
+            if parameters.log:
+                log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
+            else:
+                log_data = Evaluator(trainer.model).evaluate(val_loader)
+            if parameters.log:
+                neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
