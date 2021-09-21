@@ -7,6 +7,7 @@ https://arxiv.org/abs/1703.04200
 @date 05/09/2021
 """
 
+import time
 import neptune
 import argparse
 import numpy as np
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     grad_xy = torch.Tensor(np.sum(grad_dims)).to(trainer.device)
     grad_er = torch.Tensor(np.sum(grad_dims)).to(trainer.device)
     # start continual learning process.
+    start_time = time.time()
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
@@ -135,3 +137,5 @@ if __name__ == "__main__":
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+    duration = time.time() - start_time
+    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')

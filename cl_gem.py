@@ -6,6 +6,7 @@ Gradient Episodic Memory for Continual Learning
 @author huangyz0918
 @date 05/09/2021
 """
+import time
 
 import neptune
 import argparse
@@ -41,7 +42,7 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
+        parser.add_argument("--bsize", default=640, type=float, help="the rehearsal buffer size")
         parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
@@ -118,6 +119,7 @@ if __name__ == "__main__":
     grad_dims = get_grad_dim(trainer.model)
     grads_cs = []
     grads_da = torch.zeros(np.sum(grad_dims)).to(trainer.device)
+    start_time = time.time()
     # start continual learning process.
     for task_id, task_class in enumerate(learning_tasks):
         optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
@@ -148,3 +150,5 @@ if __name__ == "__main__":
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+    duration = time.time() - start_time
+    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')

@@ -6,6 +6,7 @@ https://arxiv.org/abs/1703.04200
 @author huangyz0918
 @date 05/09/2021
 """
+import time
 
 import neptune
 import argparse
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     small_omega = 0
     learned_class_list = []
     trainer = Trainer(parameters, model)
+    start_time = time.time()
     # store a chaced mdoel checkpoint.
     cached_checkpoint = get_params(trainer.model).data.clone().to(trainer.device)
     for task_id, task_class in enumerate(learning_tasks):
@@ -141,3 +143,5 @@ if __name__ == "__main__":
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+    duration = time.time() - start_time
+    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')

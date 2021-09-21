@@ -1,21 +1,48 @@
 """
-Continuous learning with basic finetuning.
+Training script of KWS models using GSS as the CL method.
+Reference: Gradient based sample selection for online continual learning
 
 @author huangyz0918
-@date 06/08/2021
+@date 05/09/2021
 """
 import time
-import torch
+
 import neptune
 import argparse
+import numpy as np
+
+import torch
+
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
+from model.util import Buffer, get_grad_dim
+
+
+def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loader):
+    """
+    Update the regularization after each task learning.
+    """
+    current_task = task_id + 1
+    grads_cs.append(torch.zeros(np.sum(grad_dims)).to(device))
+
+    # add data to the buffer.
+    samples_per_task = buffer.buffer_size // task_num
+    cur_x, cur_y = next(iter(loader))
+    buffer.add_data(
+        examples=cur_x.to(device),
+        labels=cur_y.to(device),
+        task_labels=torch.ones(samples_per_task, dtype=torch.long).to(device) * (current_task - 1)
+    )
+
 
 if __name__ == "__main__":
     def options(config):
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
+        # should be a multiple of batch size.
+        parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
+        parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -45,16 +72,16 @@ if __name__ == "__main__":
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
-        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]
-    }
+        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]}
 
     parameters = options(config)
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
-        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'],
+        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'],
                                   params=vars(parameters))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -83,33 +110,44 @@ if __name__ == "__main__":
     else:
         model = None
 
-    # start continuous learning.
+    # continuous learning by GEM.
     learned_class_list = []
     trainer = Trainer(parameters, model)
+    gem_buffer = Buffer(parameters.bsize, trainer.device)
+    # Allocate temporary synaptic memory.
+    grad_dims = get_grad_dim(trainer.model)
+    grads_cs = []
+    grads_da = torch.zeros(np.sum(grad_dims)).to(trainer.device)
     start_time = time.time()
+    # start continual learning process.
     for task_id, task_class in enumerate(learning_tasks):
+        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
+        print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
                                                            parameters.batch)
-        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
-        # fine-tune the whole model.
-        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
+        # starting training.
         if parameters.log:
-            trainer.model_train(task_id, optimizer, train_loader, test_loader, tag=f'task{task_id}')
+            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
+                              grads_cs, grads_da, parameters.gamma, tag=f'{task_id}')
         else:
-            trainer.model_train(task_id, optimizer, train_loader, test_loader)
+            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
+                              grads_cs, grads_da, parameters.gamma)
+
+        # update the GEM parameters.
+        on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
-        for val_id, keyword in enumerate(class_list):
-            print(f">>>   Testing on keyword id {val_id}; Keywords: {keyword}")
-            _, val_loader = get_dataloader_keyword(parameters.dpath, [keyword], class_encoding, parameters.batch)
+        for val_id, task in enumerate(learning_tasks):
+            print(f">>>   Testing on task {val_id}, Keywords: {task}")
+            _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
             if parameters.log:
-                log_data = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}').evaluate(val_loader)
+                log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
             else:
                 log_data = Evaluator(trainer.model).evaluate(val_loader)
             if parameters.log:
-                neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
+                neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
-        print(f">>>   Average Accuracy: {total_acc / len(class_list) * 100}")
+        print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
     duration = time.time() - start_time
     print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')

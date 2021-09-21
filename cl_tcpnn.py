@@ -6,6 +6,8 @@ Reference: Progressive Neural Networks (Google DeepMind)
 @author huangyz0918
 @date 16/09/2021
 """
+import time
+
 import torch
 import neptune
 import argparse
@@ -35,6 +37,7 @@ if __name__ == "__main__":
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
         return args
+
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -66,6 +69,7 @@ if __name__ == "__main__":
     model.add_column(len(learning_tasks[0]))  # add the first column for the PNN.
     trainer = Trainer(parameters, model)
     learned_class_list = []
+    start_time = time.time()
     for task_id, task_class in enumerate(learning_tasks):
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
@@ -100,3 +104,5 @@ if __name__ == "__main__":
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
         print(f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}")
+    duration = time.time() - start_time
+    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')
