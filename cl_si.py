@@ -94,7 +94,8 @@ if __name__ == "__main__":
             filter_length=256, hop_length=129, bins=129,
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
+        model = MFCC_TCResnet(bins=40, channels=parameters.cha, channel_scale=parameters.scale,
+                              num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
@@ -118,12 +119,11 @@ if __name__ == "__main__":
                                                            parameters.batch)
         # starting training.
         if parameters.log:
-            small_omega = trainer.si_train(task_id, optimizer, train_loader, test_loader,
-                                           big_omega, small_omega, cached_checkpoint, coefficient=parameters.c,
-                                           tag=task_id)
+            small_omega = trainer.si_train(optimizer, train_loader, test_loader, big_omega, small_omega,
+                                           cached_checkpoint, coefficient=parameters.c, tag=task_id)
         else:
-            small_omega = trainer.si_train(task_id, optimizer, train_loader, test_loader,
-                                           big_omega, small_omega, cached_checkpoint, coefficient=parameters.c)
+            small_omega = trainer.si_train(optimizer, train_loader, test_loader, big_omega, small_omega,
+                                           cached_checkpoint, coefficient=parameters.c)
         # update the SI parameters.
         big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, small_omega,
                                                                    cached_checkpoint, trainer.device,

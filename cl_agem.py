@@ -18,11 +18,10 @@ from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
 
-def on_task_update(task_num, buffer, device, loader):
+def on_task_update(buffer, device, loader):
     """
     Update the regularization after each task learning.
     """
-    samples_per_task = buffer.buffer_size // task_num
     cur_x, cur_y = next(iter(loader))
     buffer.add_data(examples=cur_x.to(device), labels=cur_y.to(device))
 
@@ -91,7 +90,8 @@ if __name__ == "__main__":
             filter_length=256, hop_length=129, bins=129,
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
+        model = MFCC_TCResnet(bins=40, channels=parameters.cha, channel_scale=parameters.scale,
+                              num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
@@ -117,12 +117,11 @@ if __name__ == "__main__":
         # starting training.
         optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
         if parameters.log:
-            trainer.agem_train(task_id, optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er,
-                               tag=task_id)
+            trainer.agem_train(optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er, tag=task_id)
         else:
-            trainer.agem_train(task_id, optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er)
+            trainer.agem_train(optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er)
         # update the A-GEM parameters.
-        on_task_update(len(learning_tasks), buffer, trainer.device, train_loader)
+        on_task_update(buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

@@ -41,7 +41,7 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
+        parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
         parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
@@ -100,7 +100,8 @@ if __name__ == "__main__":
             filter_length=256, hop_length=129, bins=129,
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
+        model = MFCC_TCResnet(bins=40, channels=parameters.cha, channel_scale=parameters.scale,
+                              num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":
@@ -126,10 +127,10 @@ if __name__ == "__main__":
                                                            parameters.batch)
         # starting training.
         if parameters.log:
-            trainer.gem_train(task_id, optimizer, train_loader, test_loader, gem_buffer, grad_dims,
+            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
                               grads_cs, grads_da, parameters.gamma, tag=f'{task_id}')
         else:
-            trainer.gem_train(task_id, optimizer, train_loader, test_loader, gem_buffer, grad_dims,
+            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
                               grads_cs, grads_da, parameters.gamma)
 
         # update the GEM parameters.

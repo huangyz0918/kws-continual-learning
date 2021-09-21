@@ -71,7 +71,8 @@ if __name__ == "__main__":
             filter_length=256, hop_length=129, bins=129,
             channels=parameters.cha, channel_scale=parameters.scale, num_classes=total_class_num)
     elif parameters.model == "mfcc":
-        model = MFCC_TCResnet(bins=40, channel_scale=parameters.scale, num_classes=total_class_num)
+        model = MFCC_TCResnet(bins=40, channels=parameters.cha, channel_scale=parameters.scale,
+                              num_classes=total_class_num)
     elif parameters.model == "stft-mlp":
         model = STFT_MLP(filter_length=256, hop_length=129, bins=129, num_classes=total_class_num)
     elif parameters.model == "rnn":

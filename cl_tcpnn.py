@@ -36,17 +36,6 @@ if __name__ == "__main__":
         args = parser.parse_args()
         return args
 
-
-    class_list_1 = ["yes", "no", "nine", "three", "bed",
-                    "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin",
-                    "on", "off", "house", "zero", "sheila"]
-    class_list_2 = ["stop", "go"]
-    class_list_3 = ["dog", "cat"]
-    class_list_4 = ["two", "bird"]
-    class_list_5 = ["eight", "five"]
-    class_list_6 = ["tree", "one"]
-
     config = {
         "tc-resnet8": [16, 24, 32, 48],
         "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]}
