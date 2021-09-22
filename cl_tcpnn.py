@@ -45,6 +45,9 @@ if __name__ == "__main__":
 
     parameters = options(config)
 
+    c1 = [16, 24, 32, 48]
+    c2 = [16, 24, 24, 32, 32, 48, 48]
+
     class_list_1 = ["yes", "no", "nine", "three", "bed",
                     "up", "down", "wow", "happy", "four",
                     "left", "right", "seven", "six", "marvin",
@@ -63,10 +66,9 @@ if __name__ == "__main__":
     learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
 
     # initializing the TC-PNN model.
-    model = TC_PNN(bins=129, n_channels=parameters.cha, channel_scale=parameters.scale, filter_length=256,
-                   hop_length=129)
+    model = TC_PNN(bins=129, filter_length=256, hop_length=129)
     # start continuous learning.
-    model.add_column(len(learning_tasks[0]))  # add the first column for the PNN.
+    model.add_column(len(learning_tasks[0]), c2, parameters.scale)  # add the first column for the PNN.
     trainer = Trainer(parameters, model)
     learned_class_list = []
     start_time = time.time()
@@ -78,7 +80,7 @@ if __name__ == "__main__":
                                                            parameters.batch)
         # smaller column sizes from 2nd task inwards to limit expansion.
         if task_id > 0:
-            trainer.model.add_column(len(task_class))
+            trainer.model.add_column(len(task_class), c1, parameters.scale)
         optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
         # fine-tune the whole model.
         if parameters.log:

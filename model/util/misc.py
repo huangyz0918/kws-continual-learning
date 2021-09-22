@@ -143,6 +143,19 @@ def get_params(model: nn.Module) -> torch.Tensor:
     return torch.cat(params)
 
 
+def set_params(model, new_params: torch.Tensor) -> None:
+    """
+    Sets the parameters to a given value.
+    :param new_params: concatenated values to be set (??)
+    """
+    assert new_params.size() == get_params(model).size()
+    progress = 0
+    for _, param in model.named_parameters():
+        cand_params = new_params[progress: progress + torch.tensor(param.size()).prod()].view(param.size())
+        progress += torch.tensor(param.size()).prod()
+        param.data = cand_params
+
+
 def get_gards(model: nn.Module) -> torch.Tensor:
     """
     Returns all the gardians concatenated in a single tensor.

@@ -349,24 +349,22 @@ class Res_Column(nn.Module):
 
 
 class TC_PNN(nn.Module):
-    def __init__(self, bins, n_channels, channel_scale, filter_length, hop_length):
+    def __init__(self, bins, filter_length, hop_length):
         super(TC_PNN, self).__init__()
         self.bins = bins
-        self.n_channels = n_channels
         self.cols = nn.ModuleList()
         self.stft_layer = STFT(filter_length, hop_length)
-        self.channel_scale = channel_scale
 
     def __spectrogram__(self, real, imag):
         spectrogram = torch.sqrt(real ** 2 + imag ** 2)
         return spectrogram
 
-    def add_column(self, num_class):
+    def add_column(self, num_class, n_channels, channel_scale):
         for col in self.cols:
             col.freeze()  # freeze all previous columns.
 
         col_id = len(self.cols)  # create new column.
-        col = Res_Column(num_class, self.bins, [int(cha * self.channel_scale) for cha in self.n_channels], col_id)
+        col = Res_Column(num_class, self.bins, [int(cha * channel_scale) for cha in n_channels], col_id)
         self.cols.append(col)
 
     def forward(self, waveform, task_id, lateral_weights=None):

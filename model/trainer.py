@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from .dataloader import SpeechCommandDataset, ContinualNoiseDataset, RehearsalDataset
-from .util import readlines, prepare_device
+from .util import readlines, prepare_device, set_params
 from .util import get_params, get_gards, store_grad, overwrite_grad, project2cone2, project
 
 
@@ -269,7 +269,6 @@ class Trainer:
                     penalty = torch.tensor(0.0).to(self.device)
                 else:
                     penalty = (fish * ((get_params(self.model) - checkpoint) ** 2)).sum() * ewc_lambda
-                print(f">>>>>>>>>>> penalty: {penalty}")
                 loss = self.criterion(logits, labels) + penalty
                 loss.backward()
                 optimizer.step()
@@ -520,6 +519,84 @@ class Trainer:
                 self.loss_name["train_total"] += labels.size(0)
                 self.loss_name["train_correct"] += (predict == labels).sum().item()
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
+
+            self.model.eval()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+                with torch.no_grad():
+                    waveform, labels = waveform.to(self.device), labels.to(self.device)
+                    logits = self.model(waveform)
+                    loss = self.criterion(logits, labels)
+
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
+                    _, predict = torch.max(logits.data, 1)
+                    self.loss_name["valid_total"] += labels.size(0)
+                    self.loss_name["valid_correct"] += (predict == labels).sum().item()
+                    self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
+
+            scheduler.step()
+            self.model_save()
+            print(
+                self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
+                                    self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
+
+            if tag:
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
+    def mer_train(self, optimizer, buffer, batch_num, minibatch_size, gamma, beta, train_dataloader, valid_dataloader,
+                  tag=None):
+        """
+        Using Meta-Experience Replayfor Continual Learning (MER) as the continual learning method.
+
+        @article{riemer2019learning,
+          title={Learning to learn without forgetting by maximizing transfer and minimizing interference},
+          author={Riemer, Matthew and Cases, Ignacio and Ajemian, Robert and Liu, Miao and Rish, Irina and Tu, Yuhai and Tesauro, Gerald},
+          journal={ICLR},
+          year={2019}
+        }
+        """
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        for self.epo in range(self.epoch):
+            self.loss_name.update({key: 0 for key in self.loss_name})
+            self.model.train()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+
+                batches = []
+                for i in range(batch_num):
+                    if not buffer.is_empty():
+                        buf_inputs, buf_labels = buffer.get_data(minibatch_size)
+                        con_waveform = torch.cat((buf_inputs, waveform))
+                        con_labels = torch.cat((buf_labels, labels))
+                        batches.append((con_waveform, con_labels))
+                    else:
+                        batches.append((waveform, labels))
+
+                theta_a0 = get_params(self.model).data.clone()
+
+                for i in range(batch_num):
+                    theta_wi0 = get_params(self.model).data.clone()
+                    batch_inputs, batch_labels = batches[i]
+
+                    # within-batch step
+                    optimizer.zero_grad()
+                    logits = self.model(batch_inputs)
+                    loss = self.criterion(logits, batch_labels)
+                    loss.backward()
+                    optimizer.step()
+
+                    # within batch reptile meta-update
+                    new_params = theta_wi0 + beta * (get_params(self.model) - theta_wi0)
+                    set_params(self.model, new_params)
+
+                buffer.add_data(examples=waveform, labels=labels)
+                # across batch reptile meta-update
+                new_new_params = theta_a0 + gamma * (get_params(self.model) - theta_a0)
+                set_params(self.model, new_new_params)
 
             self.model.eval()
             for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
