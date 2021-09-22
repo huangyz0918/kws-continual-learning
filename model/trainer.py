@@ -127,7 +127,7 @@ class Trainer:
             self.model.train()
             for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
-                
+
                 optimizer.zero_grad()
                 if is_pnn:
                     logits = self.model(waveform, task_id)
@@ -207,6 +207,70 @@ class Trainer:
                         optpar = optpar_dict[t_id][name]
                         loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
 
+                loss.backward()
+                optimizer.step()
+
+                self.loss_name["train_loss"] += loss.item() / train_length
+                _, predict = torch.max(logits.data, 1)
+                self.loss_name["train_total"] += labels.size(0)
+                self.loss_name["train_correct"] += (predict == labels).sum().item()
+                self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
+
+            self.model.eval()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+                with torch.no_grad():
+                    waveform, labels = waveform.to(self.device), labels.to(self.device)
+                    logits = self.model(waveform)
+                    loss = self.criterion(logits, labels)
+
+                    self.loss_name["valid_loss"] += loss.item() / valid_length
+                    _, predict = torch.max(logits.data, 1)
+                    self.loss_name["valid_total"] += labels.size(0)
+                    self.loss_name["valid_correct"] += (predict == labels).sum().item()
+                    self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
+
+            scheduler.step()
+            self.model_save()
+            print(
+                self.templet.format(self.epo + 1, self.loss_name["train_loss"], 100 * self.loss_name["train_accuracy"],
+                                    self.loss_name["valid_loss"], 100 * self.loss_name["valid_accuracy"]))
+
+            if tag:
+                neptune.log_metric(f'{tag}-epoch', self.epo)
+                neptune.log_metric(f'{tag}-train_loss', self.loss_name["train_loss"])
+                neptune.log_metric(f'{tag}-val_loss', self.loss_name["valid_loss"])
+                neptune.log_metric(f'{tag}-train_accuracy', 100 * self.loss_name["train_accuracy"])
+                neptune.log_metric(f'{tag}-valid_accuracy', 100 * self.loss_name["valid_accuracy"])
+
+    def ewc_on_train(self, optimizer, train_dataloader, valid_dataloader, fish, checkpoint, ewc_lambda, tag=None):
+        """
+        Using Online Elastic Weight Consolidation (EWC Online) as the continual learning method.
+
+        @inproceedings{schwarz2018progress,
+          title={Progress \& compress: A scalable framework for continual learning},
+          author={Schwarz, Jonathan and Czarnecki, Wojciech and Luketina, Jelena and Grabska-Barwinska, Agnieszka and Teh, Yee Whye and Pascanu, Razvan and Hadsell, Raia},
+          booktitle={International Conference on Machine Learning},
+          pages={4528--4537},
+          year={2018},
+          organization={PMLR}
+        }
+        """
+        train_length, valid_length = len(train_dataloader), len(valid_dataloader)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.step, gamma=0.1, last_epoch=-1)
+        for self.epo in range(self.epoch):
+            self.loss_name.update({key: 0 for key in self.loss_name})
+            self.model.train()
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+                waveform, labels = waveform.to(self.device), labels.to(self.device)
+
+                optimizer.zero_grad()
+                logits = self.model(waveform)
+                if checkpoint is None:
+                    penalty = torch.tensor(0.0).to(self.device)
+                else:
+                    penalty = (fish * ((get_params(self.model) - checkpoint) ** 2)).sum() * ewc_lambda
+                print(f">>>>>>>>>>> penalty: {penalty}")
+                loss = self.criterion(logits, labels) + penalty
                 loss.backward()
                 optimizer.step()
 

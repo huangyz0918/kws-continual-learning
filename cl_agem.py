@@ -19,10 +19,12 @@ from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
 
-def on_task_update(buffer, device, loader):
+def on_task_update(task_num, buffer, device, class_encoding, learned_class_list):
     """
     Update the regularization after each task learning.
     """
+    samples_per_task = buffer.buffer_size // task_num
+    loader, _ = get_dataloader_keyword(parameters.dpath, learned_class_list, class_encoding, samples_per_task)
     cur_x, cur_y = next(iter(loader))
     buffer.add_data(examples=cur_x.to(device), labels=cur_y.to(device))
 
@@ -33,7 +35,7 @@ if __name__ == "__main__":
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=12800, type=float, help="the rehearsal buffer size")
+        parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
         parser.add_argument("--log", default=False, action='store_true',
                             help="record the experiment into web neptune.ai")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
@@ -123,7 +125,7 @@ if __name__ == "__main__":
         else:
             trainer.agem_train(optimizer, train_loader, test_loader, buffer, grad_dims, grad_xy, grad_er)
         # update the A-GEM parameters.
-        on_task_update(buffer, trainer.device, train_loader)
+        on_task_update(len(learning_tasks), buffer, trainer.device, class_encoding, learned_class_list)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):

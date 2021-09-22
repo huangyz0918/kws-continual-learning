@@ -28,8 +28,7 @@ def on_task_update(task_id, model, optimizer, device, loader_mem):
     model.train()
     optimizer.zero_grad()
 
-    # accumulating gradients (extra 1 epoch)
-    print(">>>   [EWC] accumulating gradients...")
+    # accumulating gradients.
     for _, (waveform, labels) in enumerate(loader_mem):
         waveform, labels = waveform.to(device), labels.to(device)
         logits = model(waveform)

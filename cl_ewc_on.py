@@ -1,38 +1,47 @@
 """
-Training script of KWS models using GSS as the CL method.
-Reference: Gradient based sample selection for online continual learning
+Training script of KWS models using EWC-Online as the CL method.
+Reference: Progress & Compress: A scalable framework for continual learning
+https://arxiv.org/abs/1805.06370
 
 @author huangyz0918
 @date 05/09/2021
 """
 import time
-
 import neptune
 import argparse
-import numpy as np
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
 from model import Trainer, Evaluator, get_dataloader_keyword
-from model.util import Buffer, get_grad_dim
+from model.util import get_params, get_gards
+
+# for EWC method to calculate the importance of the weight.
+fish = None
+cached_checkpoint = None
 
 
-def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loader):
-    """
-    Update the regularization after each task learning.
-    """
-    current_task = task_id + 1
-    grads_cs.append(torch.zeros(np.sum(grad_dims)).to(device))
+def on_task_update(model, optimizer, device, train_loader, batch_size, gamma=1):
+    fish = torch.zeros_like(get_params(model))
+    logsoft = nn.LogSoftmax(dim=1)
+    for _, (waveforms, labels) in enumerate(train_loader):
+        waveforms, labels = waveforms.to(device), labels.to(device)
+        for ex, lab in zip(waveforms, labels):  # EWC Online
+            optimizer.zero_grad()
+            output = model(ex.unsqueeze(0))
+            loss = - F.nll_loss(logsoft(output), lab.unsqueeze(0), reduction='none')
+            exp_cond_prob = torch.mean(torch.exp(loss.detach().clone()))
+            loss = torch.mean(loss)
+            loss.backward()
+            fish += exp_cond_prob * get_gards(model) ** 2
 
-    # add data to the buffer.
-    samples_per_task = buffer.buffer_size // task_num
-    cur_x, cur_y = next(iter(loader))
-    buffer.add_data(
-        examples=cur_x.to(device),
-        labels=cur_y.to(device),
-        task_labels=torch.ones(samples_per_task, dtype=torch.long).to(device) * (current_task - 1)
-    )
+    fish /= (len(train_loader) * batch_size)
+    fish *= gamma
+    fish += fish
+
+    return fish, get_params(model).data.clone()
 
 
 if __name__ == "__main__":
@@ -40,14 +49,13 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
         parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        # should be a multiple of batch size.
-        parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
-        parser.add_argument('--gamma', type=float, default=0.5, help='Margin parameter for GEM.')
+        parser.add_argument("--elambda", default=6, type=float, help="EWC Lambda, the regularization strength")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
-        parser.add_argument("--step", default=30, type=int, help="Training step size")
-        parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--log", default=False, action='store_true',
                             help="record the experiment into web neptune.ai")
+        parser.add_argument('--gamma', type=float, default=1, help='gamma parameter for EWC online')
+        parser.add_argument("--step", default=30, type=int, help="Training step size")
+        parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
 
         parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
@@ -79,7 +87,7 @@ if __name__ == "__main__":
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
-        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'GEM'],
+        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'EWC-Online'],
                                   params=vars(parameters))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -110,32 +118,24 @@ if __name__ == "__main__":
     else:
         model = None
 
-    # continuous learning by GEM.
+    # continuous learning by EWC.
     learned_class_list = []
     trainer = Trainer(parameters, model)
-    gem_buffer = Buffer(parameters.bsize, trainer.device)
-    # Allocate temporary synaptic memory.
-    grad_dims = get_grad_dim(trainer.model)
-    grads_cs = []
-    grads_da = torch.zeros(np.sum(grad_dims)).to(trainer.device)
+    optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
     start_time = time.time()
-    # start continual learning process.
     for task_id, task_class in enumerate(learning_tasks):
-        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
         print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
         train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
                                                            parameters.batch)
         # starting training.
         if parameters.log:
-            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
-                              grads_cs, grads_da, parameters.gamma, tag=f'{task_id}')
+            trainer.ewc_on_train(optimizer, train_loader, test_loader, fish, cached_checkpoint, parameters.elambda,
+                                 tag=task_id)
         else:
-            trainer.gem_train(optimizer, train_loader, test_loader, gem_buffer, grad_dims,
-                              grads_cs, grads_da, parameters.gamma)
-
-        # update the GEM parameters.
-        on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
+            trainer.ewc_on_train(optimizer, train_loader, test_loader, fish, cached_checkpoint, parameters.elambda)
+        # update the EWC parameters.
+        fish, cached_checkpoint = on_task_update(trainer.model, optimizer, device, train_loader, parameters.batch)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):
