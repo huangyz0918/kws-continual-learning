@@ -14,12 +14,12 @@ import numpy as np
 
 import torch
 
-from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
 
-def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loader):
+def on_task_update(task_id, grads_cs, grad_dims, buffer, device, loader):
     """
     Update the regularization after each task learning.
     """
@@ -27,8 +27,8 @@ def on_task_update(task_id, task_num, grads_cs, grad_dims, buffer, device, loade
     grads_cs.append(torch.zeros(np.sum(grad_dims)).to(device))
 
     # add data to the buffer.
-    samples_per_task = buffer.buffer_size // task_num
     cur_x, cur_y = next(iter(loader))
+    samples_per_task = len(cur_x)  # sample a batch data.
     buffer.add_data(
         examples=cur_x.to(device),
         labels=cur_y.to(device),
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     # continuous learning by GEM.
     learned_class_list = []
     trainer = Trainer(parameters, model)
-    gem_buffer = Buffer(parameters.bsize, trainer.device)
+    gem_buffer = Buffer(int(parameters.bsize), trainer.device)
     # Allocate temporary synaptic memory.
     grad_dims = get_grad_dim(trainer.model)
     grads_cs = []
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                               grads_cs, grads_da, parameters.gamma)
 
         # update the GEM parameters.
-        on_task_update(task_id, len(learning_tasks), grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
+        on_task_update(task_id, grads_cs, grad_dims, gem_buffer, trainer.device, train_loader)
         # start evaluating the CL on previous tasks.
         total_acc = 0
         for val_id, task in enumerate(learning_tasks):
@@ -149,6 +149,7 @@ if __name__ == "__main__":
             if parameters.log:
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
-        print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+        print(
+            f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}, Parameter: {parameter_number(trainer.model)}")
     duration = time.time() - start_time
     print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')

@@ -5,10 +5,11 @@
 
 import time
 import quadprog
-import numpy as np 
+import numpy as np
 
 import torch
 import torch.nn as nn
+
 
 class ColorEnum:
     BOLD = '\033[1m'
@@ -18,6 +19,7 @@ class ColorEnum:
     YELLOW = '\033[93m'
     RED = '\033[91m'
     END = '\033[0m'
+
 
 def print_color(color, *msgs):
     print(color, *msgs, ColorEnum.END)
@@ -40,7 +42,9 @@ def prepare_device(n_gpu_use):
         print_color(ColorEnum.YELLOW, "There\'s no GPU available on this machine, training will be performed on CPU.")
         n_gpu_use = 0
     if n_gpu_use > n_gpu:
-        print_color(ColorEnum.YELLOW, "Warning: The number of GPU\'s configured to use is {}, but only {} are available on this machine.".format(n_gpu_use, n_gpu))
+        print_color(ColorEnum.YELLOW,
+                    "Warning: The number of GPU\'s configured to use is {}, but only {} are available on this machine.".format(
+                        n_gpu_use, n_gpu))
         n_gpu_use = n_gpu
     device = torch.device("cuda" if n_gpu_use > 0 else "cpu")
     list_ids = list(range(n_gpu_use))
@@ -100,6 +104,7 @@ def overwrite_grad(params, newgrad, grad_dims):
             param.grad.data.copy_(this_grad)
         count += 1
 
+
 def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
     """
         Solves the GEM dual QP described in the paper given a proposed
@@ -121,9 +126,11 @@ def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
     x = np.dot(v, memories_np) + gradient_np
     gradient.copy_(torch.from_numpy(x).view(-1, 1))
 
+
 def project(gxy: torch.Tensor, ger: torch.Tensor) -> torch.Tensor:
     corr = torch.dot(gxy, ger) / torch.dot(ger, ger)
     return gxy - corr * ger
+
 
 def get_params(model: nn.Module) -> torch.Tensor:
     """

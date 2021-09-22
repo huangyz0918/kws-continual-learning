@@ -14,7 +14,7 @@ import numpy as np
 
 import torch
 
-from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
+from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
 from model.util import Buffer, get_grad_dim
 
@@ -138,6 +138,7 @@ if __name__ == "__main__":
             if parameters.log:
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             total_acc += log_data["test_accuracy"]
-        print(f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}")
+        print(
+            f">>>   Average Accuracy: {total_acc / len(learning_tasks) * 100}, Parameter: {parameter_number(trainer.model)}")
     duration = time.time() - start_time
     print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')
