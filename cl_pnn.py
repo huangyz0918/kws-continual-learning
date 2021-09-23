@@ -31,22 +31,25 @@ if __name__ == "__main__":
     parser.add_argument("--save", default="stft", type=str, help="The save name")
     parameters = parser.parse_args()
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed",
-                    "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin",
-                    "on", "off", "house", "zero", "sheila"]
-    class_list_2 = ["stop", "go"]
-    class_list_3 = ["dog", "cat"]
-    class_list_4 = ["two", "bird"]
-    class_list_5 = ["eight", "five"]
-    class_list_6 = ["tree", "one"]
+    class_list_0 = ["yes", "no", "nine", "three", "bed", "up", "down", "wow", "happy", "four"]
+    class_list_1 = ["stop", "go"]
+    class_list_2 = ["dog", "cat"]
+    class_list_3 = ["two", "bird"]
+    class_list_4 = ["eight", "five"]
+    class_list_5 = ["tree", "one"]
+    class_list_6 = ["left", "right"]
+    class_list_7 = ["seven", "six"]
+    class_list_8 = ["marvin", "on"]
+    class_list_9 = ["off", "house"]
+    class_list_10 = ["zero", "sheila"]
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
         neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'PNN'], params=vars(parameters))
     class_list = []
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
+    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6,
+                      class_list_7, class_list_8, class_list_9, class_list_10]
 
     # initializing the PNN model.
     model = MLP_PNN(256, 129, 129 * 125)

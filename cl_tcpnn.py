@@ -46,29 +46,32 @@ if __name__ == "__main__":
     parameters = options(config)
 
     c1 = [16, 24, 32, 48]
-    c2 = [16, 24, 24, 32, 32, 48, 48]
+    c2 = [16, 48]
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed",
-                    "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin",
-                    "on", "off", "house", "zero", "sheila"]
-    class_list_2 = ["stop", "go"]
-    class_list_3 = ["dog", "cat"]
-    class_list_4 = ["two", "bird"]
-    class_list_5 = ["eight", "five"]
-    class_list_6 = ["tree", "one"]
+    class_list_0 = ["yes", "no", "nine", "three", "bed", "up", "down", "wow", "happy", "four"]
+    class_list_1 = ["stop", "go"]
+    class_list_2 = ["dog", "cat"]
+    class_list_3 = ["two", "bird"]
+    class_list_4 = ["eight", "five"]
+    class_list_5 = ["tree", "one"]
+    class_list_6 = ["left", "right"]
+    class_list_7 = ["seven", "six"]
+    class_list_8 = ["marvin", "on"]
+    class_list_9 = ["off", "house"]
+    class_list_10 = ["zero", "sheila"]
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
         neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TCPNN'], params=vars(parameters))
     class_list = []
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
+    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6,
+                      class_list_7, class_list_8, class_list_9, class_list_10]
 
     # initializing the TC-PNN model.
     model = TC_PNN(bins=129, filter_length=256, hop_length=129)
     # start continuous learning.
-    model.add_column(len(learning_tasks[0]), c2, parameters.scale)  # add the first column for the PNN.
+    model.add_column(len(learning_tasks[0]), c1, parameters.scale)  # add the first column for the PNN.
     trainer = Trainer(parameters, model)
     learned_class_list = []
     start_time = time.time()
@@ -80,7 +83,7 @@ if __name__ == "__main__":
                                                            parameters.batch)
         # smaller column sizes from 2nd task inwards to limit expansion.
         if task_id > 0:
-            trainer.model.add_column(len(task_class), c1, parameters.scale)
+            trainer.model.add_column(len(task_class), c2, parameters.scale)
         optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
         # fine-tune the whole model.
         if parameters.log:

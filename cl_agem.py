@@ -53,15 +53,17 @@ if __name__ == "__main__":
         return args
 
 
-    class_list_1 = ["yes", "no", "nine", "three", "bed",
-                    "up", "down", "wow", "happy", "four",
-                    "left", "right", "seven", "six", "marvin",
-                    "on", "off", "house", "zero", "sheila"]
-    class_list_2 = ["stop", "go"]
-    class_list_3 = ["dog", "cat"]
-    class_list_4 = ["two", "bird"]
-    class_list_5 = ["eight", "five"]
-    class_list_6 = ["tree", "one"]
+    class_list_0 = ["yes", "no", "nine", "three", "bed", "up", "down", "wow", "happy", "four"]
+    class_list_1 = ["stop", "go"]
+    class_list_2 = ["dog", "cat"]
+    class_list_3 = ["two", "bird"]
+    class_list_4 = ["eight", "five"]
+    class_list_5 = ["tree", "one"]
+    class_list_6 = ["left", "right"]
+    class_list_7 = ["seven", "six"]
+    class_list_8 = ["marvin", "on"]
+    class_list_9 = ["off", "house"]
+    class_list_10 = ["zero", "sheila"]
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
@@ -78,7 +80,8 @@ if __name__ == "__main__":
 
     # build a multi-head setting for learning process.
     total_class_list = []
-    learning_tasks = [class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6]
+    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6,
+                      class_list_7, class_list_8, class_list_9, class_list_10]
     for x in learning_tasks:
         total_class_list += x
     total_class_num = len([i for j, i in enumerate(total_class_list) if i not in total_class_list[:j]])
