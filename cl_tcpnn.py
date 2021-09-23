@@ -14,6 +14,8 @@ import argparse
 from model import TC_PNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
 
+output_results = {}
+
 if __name__ == "__main__":
     def options(config):
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
@@ -32,7 +34,7 @@ if __name__ == "__main__":
 
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
-        parser.add_argument("--scale", default=3, type=int, help="The scale of model channel")
+        parser.add_argument("--scale", default=1, type=int, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
