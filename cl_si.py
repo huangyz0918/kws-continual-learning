@@ -112,6 +112,7 @@ if __name__ == "__main__":
     # continuous learning by SI.
     big_omega = None
     small_omega = 0
+    la_list = []
     acc_list = []
     bwt_list = []
     learned_class_list = []
@@ -149,13 +150,16 @@ if __name__ == "__main__":
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
             if val_id <= task_id:
                 total_learned_acc += log_data["test_accuracy"]
+            if val_id == task_id:
+                la_list.append(log_data["test_accuracy"])
 
         acc_list.append(total_learned_acc / (task_id + 1))
         if task_id > 0:
             bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
 
     duration = time.time() - start_time
-    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')
+    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}s')
     print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
+    print(f'LA: {np.mean(la_list)}, std: {np.std(la_list)}')
     print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')
-    print(f'Parameter: {parameter_number(trainer.model)}')
+    print(f'Parameter: {parameter_number(trainer.model) / 1024} K')
