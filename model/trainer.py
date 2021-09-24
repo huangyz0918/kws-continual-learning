@@ -125,7 +125,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -144,7 +144,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     if is_pnn:
@@ -193,7 +193,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -217,7 +217,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -260,7 +260,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -280,7 +280,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -324,7 +324,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.model.train()
             self.loss_name.update({key: 0 for key in self.loss_name})
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -354,7 +354,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -400,7 +400,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 # get the rehearsal data.
@@ -441,7 +441,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -485,7 +485,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 # compute the grad on the current data.
@@ -521,7 +521,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -563,7 +563,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 batches = []
@@ -599,7 +599,7 @@ class Trainer:
                 set_params(self.model, new_new_params)
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader)):
+            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)

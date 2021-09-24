@@ -11,6 +11,7 @@ import time
 import torch
 import neptune
 import argparse
+import numpy as np
 from model import MLP_PNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
 
@@ -56,6 +57,8 @@ if __name__ == "__main__":
     # start continuous learning.
     model.add_column(len(learning_tasks[0]))  # add the first column for the PNN.
     trainer = Trainer(parameters, model)
+    acc_list = []
+    bwt_list = []
     learned_class_list = []
     start_time = time.time()
     for task_id, task_class in enumerate(learning_tasks):
@@ -74,7 +77,7 @@ if __name__ == "__main__":
         else:
             trainer.model_train(task_id, optimizer, train_loader, test_loader, is_pnn=True)
         # start evaluating the CL on previous tasks.
-        total_acc = 0
+        total_learned_acc = 0
         for val_id in range(task_id + 1):
             print(f">>>   Testing on task {val_id}, Keywords: {learning_tasks[val_id]}")
             test_encoding = {category: index for index, category in enumerate(learning_tasks[val_id])}
@@ -90,8 +93,15 @@ if __name__ == "__main__":
                 log_data = evaluator.pnn_evaluate(val_id, val_loader)
             if parameters.log:
                 neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
-            total_acc += log_data["test_accuracy"]
-        print(
-            f">>>   Average Accuracy: {total_acc / (task_id + 1) * 100}, Parameter: {parameter_number(trainer.model)}")
+            if val_id <= task_id:
+                total_learned_acc += log_data["test_accuracy"]
+
+        acc_list.append(total_learned_acc / (task_id + 1))
+        if task_id > 0:
+            bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
+
     duration = time.time() - start_time
     print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')
+    print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
+    print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')
+    print(f'Parameter: {parameter_number(trainer.model)}')

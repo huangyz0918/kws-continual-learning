@@ -2,22 +2,22 @@
 
 # run without neptune logging.
 echo 'run the fine-tune...'
-python cl_keyword.py --epoch 10
+python cl_cf_keyword.py --epoch 10 >> log_finetune.txt
 
 echo 'run the naive rehearsal...'
-python cl_rehearsal.py --epoch 10 --ratio 1
+python cl_nr.py --epoch 10 >> log_nr.txt
 
 echo 'run ewc...'
-python cl_ewc.py --epoch 10 --elambda 9
+python cl_ewc.py --epoch 10 --elambda 9 >> log_ewc.txt
 
 echo 'run si...'
-python cl_si.py --epoch 10 --c 11 --elambda 0.0007
+python cl_si.py --epoch 10 --c 11 --elambda 0.0007 >> log_si.txt
 
-echo 'run gem-128...'
-python cl_gem.py --epoch 10 --bsize 128
+echo 'run gem with buffer size: 128...'
+python cl_gem.py --epoch 10 --bsize 128 >> log_gem_128.txt
 
-echo 'run gem-640...'
-python cl_gem.py --epoch 10 --bsize 640
+echo 'run gem with buffer size: 640...'
+python cl_gem.py --epoch 10 --bsize 640 >> log_gem_640.txt
 
 echo 'run tc-pnn...'
-python cl_tcpnn.py --epoch 10
+python cl_tcpnn.py --epoch 10 >> log_tcpnn.txt

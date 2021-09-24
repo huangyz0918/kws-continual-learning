@@ -8,6 +8,7 @@ import time
 import torch
 import neptune
 import argparse
+import numpy as np
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
 
@@ -87,6 +88,8 @@ if __name__ == "__main__":
         model = None
 
     # start continuous learning.
+    acc_list = []
+    bwt_list = []
     learned_class_list = []
     trainer = Trainer(parameters, model)
     start_time = time.time()
@@ -102,18 +105,25 @@ if __name__ == "__main__":
         else:
             trainer.model_train(task_id, optimizer, train_loader, test_loader)
         # start evaluating the CL on previous tasks.
-        total_acc = 0
-        for val_id, keyword in enumerate(class_list):
-            print(f">>>   Testing on keyword id {val_id}; Keywords: {keyword}")
-            _, val_loader = get_dataloader_keyword(parameters.dpath, [keyword], class_encoding, parameters.batch)
+        total_learned_acc = 0
+        for val_id, task in enumerate(learning_tasks):
+            print(f">>>   Testing on task {val_id}, Keywords: {task}")
+            _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
             if parameters.log:
-                log_data = Evaluator(trainer.model, tag=f't{task_id}v-{keyword}').evaluate(val_loader)
+                log_data = Evaluator(trainer.model, tag=f't{task_id}v{val_id}').evaluate(val_loader)
             else:
                 log_data = Evaluator(trainer.model).evaluate(val_loader)
             if parameters.log:
-                neptune.log_metric(f'TASK-{task_id}-keyword-{keyword}-acc', log_data["test_accuracy"])
-            total_acc += log_data["test_accuracy"]
-        print(
-            f">>>   Average Accuracy: {total_acc / len(class_list) * 100}, Parameter: {parameter_number(trainer.model)}")
+                neptune.log_metric(f'TASK-{task_id}-acc', log_data["test_accuracy"])
+            if val_id <= task_id:
+                total_learned_acc += log_data["test_accuracy"]
+
+        acc_list.append(total_learned_acc / (task_id + 1))
+        if task_id > 0:
+            bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
+
     duration = time.time() - start_time
     print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}')
+    print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
+    print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')
+    print(f'Parameter: {parameter_number(trainer.model)}')

@@ -49,6 +49,11 @@ And you are all set to run the training script by
 python train.py
 ```
 
+If you want to reproduce all the experiment results, you can simply run 
+
+```python
+bash ./run_all.sh
+```
 ### Reference
 
 We use TC-ResNet as the basic KWS model.

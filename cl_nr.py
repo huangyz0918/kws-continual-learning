@@ -1,44 +1,22 @@
 """
-Training script of KWS models using SI as the CL method.
-Reference: Continual Learning Through Synaptic Intelligence
-https://arxiv.org/abs/1703.04200
+Continuous learning with naive rehearsal.
 
 @author huangyz0918
-@date 05/09/2021
+@date 06/08/2021
 """
 import time
-
+import torch
 import neptune
 import argparse
 import numpy as np
-
-import torch
-
 from model import STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN, parameter_number
 from model import Trainer, Evaluator, get_dataloader_keyword
-from model.util import get_params
-
-
-def on_task_update(model, big_omega, small_omega,
-                   cached_checkpoint, device, elambda=0):
-    """
-    Update the regularization after each task learning.
-    """
-    if big_omega is None:
-        big_omega = torch.zeros_like(get_params(model)).to(device)
-    # online EWC lambda.
-    big_omega += small_omega / ((get_params(model).data - cached_checkpoint) ** 2 + elambda)
-    # store parameters checkpoint and reset small_omega
-    return big_omega, 0, get_params(model).data.clone().to(device)
-
 
 if __name__ == "__main__":
     def options(config):
         parser = argparse.ArgumentParser(description="Input optional guidance for training")
-        parser.add_argument("--epoch", default=1, type=int, help="The number of training epoch")
+        parser.add_argument("--epoch", default=10, type=int, help="The number of training epoch")
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
-        parser.add_argument("--elambda", default=0.0005, type=float, help="online EWC lambda")
-        parser.add_argument("--c", default=10, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -70,16 +48,16 @@ if __name__ == "__main__":
 
     config = {
         "tc-resnet8": [16, 24, 32, 48],
-        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]}
+        "tc-resnet14": [16, 24, 24, 32, 32, 48, 48]
+    }
 
     parameters = options(config)
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
-        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'SI'],
+        neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TC-ResNet', 'Keyword'],
                                   params=vars(parameters))
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # build a multi-head setting for learning process.
     total_class_list = []
@@ -109,33 +87,22 @@ if __name__ == "__main__":
     else:
         model = None
 
-    # continuous learning by SI.
-    big_omega = None
-    small_omega = 0
+    # start continuous learning.
     acc_list = []
     bwt_list = []
     learned_class_list = []
     trainer = Trainer(parameters, model)
     start_time = time.time()
-    # store a chaced mdoel checkpoint.
-    cached_checkpoint = get_params(trainer.model).data.clone().to(trainer.device)
     for task_id, task_class in enumerate(learning_tasks):
-        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
-        print(">>>   Learned Class: ", learned_class_list, " To Learn: ", task_class)
         learned_class_list += task_class
-        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, task_class, class_encoding,
-                                                           parameters.batch)
-        # starting training.
+        train_loader, test_loader = get_dataloader_keyword(parameters.dpath, learned_class_list, class_encoding, parameters.batch)
+        print(f">>>   Task {task_id}, Testing Keywords: {task_class}")
+        # fine-tune the whole model.
+        optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
         if parameters.log:
-            small_omega = trainer.si_train(optimizer, train_loader, test_loader, big_omega, small_omega,
-                                           cached_checkpoint, coefficient=parameters.c, tag=task_id)
+            trainer.model_train(task_id, optimizer, train_loader, test_loader, tag=f'task{task_id}')
         else:
-            small_omega = trainer.si_train(optimizer, train_loader, test_loader, big_omega, small_omega,
-                                           cached_checkpoint, coefficient=parameters.c)
-        # update the SI parameters.
-        big_omega, small_omega, cached_checkpoint = on_task_update(trainer.model, big_omega, small_omega,
-                                                                   cached_checkpoint, trainer.device,
-                                                                   parameters.elambda)
+            trainer.model_train(task_id, optimizer, train_loader, test_loader)
         # start evaluating the CL on previous tasks.
         total_learned_acc = 0
         for val_id, task in enumerate(learning_tasks):

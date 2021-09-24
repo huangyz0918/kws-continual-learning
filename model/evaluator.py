@@ -19,7 +19,7 @@ class Evaluator:
 
     def evaluate(self, data_loader):
         self.model.eval()
-        for batch_idx, (waveform, labels) in tqdm(enumerate(data_loader)):
+        for batch_idx, (waveform, labels) in enumerate(data_loader):
             with torch.no_grad():
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 logits = self.model(waveform)
@@ -47,7 +47,7 @@ class Evaluator:
             l_w = [0] * task_id
 
         self.model.eval()
-        for batch_idx, (waveform, labels) in tqdm(enumerate(data_loader)):
+        for batch_idx, (waveform, labels) in enumerate(data_loader):
             with torch.no_grad():
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
                 logits = self.model(waveform, task_id, lateral_weights=l_w)
