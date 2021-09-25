@@ -117,6 +117,7 @@ if __name__ == "__main__":
                 la_list.append(log_data["test_accuracy"])
 
         acc_list.append(total_learned_acc / (task_id + 1))
+        print(f'ACC on TASK {task_id}: {total_learned_acc / (task_id + 1)}')
         if task_id > 0:
             bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
 
