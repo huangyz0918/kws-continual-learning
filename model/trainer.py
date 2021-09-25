@@ -87,6 +87,7 @@ class Trainer:
         self.epoch = opt.epoch
         self.batch = opt.batch
         self.model = model
+        self.tqdm = opt.tqdm
         self.device, self.device_list = prepare_device(opt.gpu)
         self.templet = "EPOCH: {:01d}  Train: loss {:0.3f}  Acc {:0.2f}  |  Valid: loss {:0.3f}  Acc {:0.2f}"
         # map the model weight to the device.
@@ -125,7 +126,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -144,7 +145,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     if is_pnn:
@@ -158,7 +159,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(
@@ -193,7 +203,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -206,7 +216,16 @@ class Trainer:
                         fisher = fisher_dict[t_id][name]
                         optpar = optpar_dict[t_id][name]
                         loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
                 loss.backward()
                 optimizer.step()
 
@@ -217,7 +236,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -260,7 +279,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -280,7 +299,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -291,7 +310,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(
@@ -324,7 +352,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.model.train()
             self.loss_name.update({key: 0 for key in self.loss_name})
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 optimizer.zero_grad()
@@ -354,7 +382,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -365,7 +393,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(
@@ -400,7 +437,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 # get the rehearsal data.
@@ -441,7 +478,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -452,7 +489,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(
@@ -485,7 +531,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 # compute the grad on the current data.
@@ -521,7 +567,7 @@ class Trainer:
                 self.loss_name["train_accuracy"] = self.loss_name["train_correct"] / self.loss_name["train_total"]
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -532,7 +578,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(
@@ -563,7 +618,7 @@ class Trainer:
         for self.epo in range(self.epoch):
             self.loss_name.update({key: 0 for key in self.loss_name})
             self.model.train()
-            for batch_idx, (waveform, labels) in enumerate(train_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(train_dataloader), disable=self.tqdm):
                 waveform, labels = waveform.to(self.device), labels.to(self.device)
 
                 batches = []
@@ -599,7 +654,7 @@ class Trainer:
                 set_params(self.model, new_new_params)
 
             self.model.eval()
-            for batch_idx, (waveform, labels) in enumerate(valid_dataloader):
+            for batch_idx, (waveform, labels) in tqdm(enumerate(valid_dataloader), disable=self.tqdm):
                 with torch.no_grad():
                     waveform, labels = waveform.to(self.device), labels.to(self.device)
                     logits = self.model(waveform)
@@ -610,7 +665,16 @@ class Trainer:
                     self.loss_name["valid_total"] += labels.size(0)
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
-
+            val_acc = self.loss_name["valid_accuracy"]
+            best_acc = 0
+            if val_acc > best_acc:
+                best_acc = val_acc
+                es = 0
+            else:
+                es += 1
+                if es > 1:
+                    print("Early stopping with best accuracy: ", best_acc)
+                    break
             scheduler.step()
             self.model_save()
             print(

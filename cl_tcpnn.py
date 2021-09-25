@@ -24,10 +24,9 @@ if __name__ == "__main__":
         parser.add_argument("--lr", default=0.01, type=float, help="Learning rate")
         parser.add_argument("--lc", default=False, action='store_true',
                             help="Test on the task with/without lateral connections")
-        parser.add_argument("--log", default=False, action='store_true',
-                            help="record the experiment into web neptune.ai")
-        parser.add_argument("--elambda", default=0.0005, type=float, help="online EWC lambda")
-        parser.add_argument("--c", default=10, type=float, help="SI surrogate loss coefficient")
+        parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
+        parser.add_argument("--log", default=False, action='store_true', help="record the experiment into web neptune.ai")
+        parser.add_argument("--c", default=5, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -51,25 +50,23 @@ if __name__ == "__main__":
     c1 = [16, 24, 32, 48]
     c2 = [16, 48]
 
-    class_list_0 = ["yes", "no", "nine", "three", "bed", "up", "down", "wow", "happy", "four"]
-    class_list_1 = ["stop", "go"]
-    class_list_2 = ["dog", "cat"]
-    class_list_3 = ["two", "bird"]
-    class_list_4 = ["eight", "five"]
-    class_list_5 = ["tree", "one"]
-    class_list_6 = ["left", "right"]
-    class_list_7 = ["seven", "six"]
-    class_list_8 = ["marvin", "on"]
-    class_list_9 = ["off", "house"]
-    class_list_10 = ["zero", "sheila"]
+    class_list_0 = ["yes", "no", "nine", 
+                    "three", "bed", "up", 
+                    "down", "wow", "happy", 
+                    "four", "stop", "go",
+                    "dog", "cat", "five"]
+    class_list_1 = ["tree", "one", "eight"]
+    class_list_2 = ["left", "right", "bird"]
+    class_list_3 = ["seven", "six", "two"]
+    class_list_4 = ["marvin", "on", "sheila"]
+    class_list_5 = ["off", "house", "zero"]
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
         neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'TCPNN'], params=vars(parameters))
     class_list = []
-    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6,
-                      class_list_7, class_list_8, class_list_9, class_list_10]
+    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
 
     # initializing the TC-PNN model.
     model = TC_PNN(bins=129, filter_length=256, hop_length=129)
@@ -96,6 +93,7 @@ if __name__ == "__main__":
             trainer.model_train(task_id, optimizer, train_loader, test_loader, is_pnn=True, tag=f'task{task_id}')
         else:
             trainer.model_train(task_id, optimizer, train_loader, test_loader, is_pnn=True)
+        print(f'Parameter on TASK {task_id}: {parameter_number(trainer.model) / 1024} K')
         # start evaluating the CL on previous tasks.
         total_learned_acc = 0
         for val_id in range(task_id + 1):
@@ -123,7 +121,7 @@ if __name__ == "__main__":
             bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
 
     duration = time.time() - start_time
-    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}s')
+    print(f'Total time {duration}, Avg: {duration / (parameters.epoch * len(learning_tasks))}s')
     print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
     print(f'LA: {np.mean(la_list)}, std: {np.std(la_list)}')
     print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')

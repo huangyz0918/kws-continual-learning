@@ -27,30 +27,28 @@ if __name__ == "__main__":
     parser.add_argument("--log", default=False, action='store_true',
                         help="record the experiment into web neptune.ai")
     parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
-
+    parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
     parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
     parser.add_argument("--save", default="stft", type=str, help="The save name")
     parameters = parser.parse_args()
 
-    class_list_0 = ["yes", "no", "nine", "three", "bed", "up", "down", "wow", "happy", "four"]
-    class_list_1 = ["stop", "go"]
-    class_list_2 = ["dog", "cat"]
-    class_list_3 = ["two", "bird"]
-    class_list_4 = ["eight", "five"]
-    class_list_5 = ["tree", "one"]
-    class_list_6 = ["left", "right"]
-    class_list_7 = ["seven", "six"]
-    class_list_8 = ["marvin", "on"]
-    class_list_9 = ["off", "house"]
-    class_list_10 = ["zero", "sheila"]
+    class_list_0 = ["yes", "no", "nine", 
+                    "three", "bed", "up", 
+                    "down", "wow", "happy", 
+                    "four", "stop", "go",
+                    "dog", "cat", "five"]
+    class_list_1 = ["tree", "one", "eight"]
+    class_list_2 = ["left", "right", "bird"]
+    class_list_3 = ["seven", "six", "two"]
+    class_list_4 = ["marvin", "on", "sheila"]
+    class_list_5 = ["off", "house", "zero"]
 
     # initialize and setup Neptune
     if parameters.log:
         neptune.init('huangyz0918/kws')
         neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'PNN'], params=vars(parameters))
     class_list = []
-    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5, class_list_6,
-                      class_list_7, class_list_8, class_list_9, class_list_10]
+    learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
 
     # initializing the PNN model.
     model = MLP_PNN(256, 129, 129 * 125)
@@ -104,7 +102,7 @@ if __name__ == "__main__":
             bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
 
     duration = time.time() - start_time
-    print(f'Training finished, time for {parameters.epoch} epoch: {duration}, average: {duration / parameters.epoch}s')
+    print(f'Total time {duration}, Avg: {duration / (parameters.epoch * len(learning_tasks))}s')
     print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
     print(f'LA: {np.mean(la_list)}, std: {np.std(la_list)}')
     print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')
