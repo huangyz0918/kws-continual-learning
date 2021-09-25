@@ -102,7 +102,7 @@ if __name__ == "__main__":
             bwt_list.append(np.mean([acc_list[i + 1] - acc_list[i] for i in range(len(acc_list) - 1)]))
 
     duration = time.time() - start_time
-    print(f'Total time {duration}, Avg: {duration / (parameters.epoch * len(learning_tasks))}s')
+    print(f'Total time {duration}, Avg: {duration / len(learning_tasks)}s')
     print(f'ACC: {np.mean(acc_list)}, std: {np.std(acc_list)}')
     print(f'LA: {np.mean(la_list)}, std: {np.std(la_list)}')
     print(f'BWT: {np.mean(bwt_list)}, std: {np.std(bwt_list)}')
