@@ -24,11 +24,12 @@ if __name__ == "__main__":
         parser.add_argument("--ratio", default=0, type=float, help="Historical data replay ratio")
         parser.add_argument("--log", default=False, action='store_true',
                             help="record the experiment into web neptune.ai")
+        parser.add_argument("--ek", default=False, action='store_true', help="evaluate the CL by keywords")
         parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
         parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
-        parser.add_argument("--scale", default=1, type=int, help="The scale of model channel")
+        parser.add_argument("--scale", default=1, type=float, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
@@ -113,7 +114,11 @@ if __name__ == "__main__":
             trainer.model_train(task_id, optimizer, train_loader, test_loader)
         # the task evaluation.
         total_learned_acc = 0
-        for val_id, task in enumerate(learning_tasks):
+        if parameters.ek:
+            evaluate_list = class_list
+        else: 
+            evaluate_list = learning_tasks
+        for val_id, task in enumerate(evaluate_list):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_replay(parameters.dpath, task, learned_class_list, class_encoding)
             if parameters.log:

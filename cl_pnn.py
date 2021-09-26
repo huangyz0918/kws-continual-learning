@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
     parser.add_argument("--log", default=False, action='store_true',
                         help="record the experiment into web neptune.ai")
+        parser.add_argument("--ek", default=False, action='store_true', help="evaluate the CL by keywords")
     parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
     parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
     parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
@@ -49,6 +50,8 @@ if __name__ == "__main__":
         neptune.create_experiment(name='kws_model', tags=['pytorch', 'KWS', 'GSC', 'PNN'], params=vars(parameters))
     class_list = []
     learning_tasks = [class_list_0, class_list_1, class_list_2, class_list_3, class_list_4, class_list_5]
+    for task in learning_tasks:
+        class_list += task
 
     # initializing the PNN model.
     model = MLP_PNN(256, 129, 129 * 125)
@@ -77,10 +80,14 @@ if __name__ == "__main__":
             trainer.model_train(task_id, optimizer, train_loader, test_loader, is_pnn=True)
         # start evaluating the CL on previous tasks.
         total_learned_acc = 0
+        if parameters.ek:
+            evaluate_list = class_list
+        else: 
+            evaluate_list = learning_tasks
         for val_id in range(task_id + 1):
-            print(f">>>   Testing on task {val_id}, Keywords: {learning_tasks[val_id]}")
-            test_encoding = {category: index for index, category in enumerate(learning_tasks[val_id])}
-            _, val_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], test_encoding,
+            print(f">>>   Testing on task {val_id}, Keywords: {evaluate_list[val_id]}")
+            test_encoding = {category: index for index, category in enumerate(evaluate_list[val_id])}
+            _, val_loader = get_dataloader_keyword(parameters.dpath, evaluate_list[val_id], test_encoding,
                                                    parameters.batch)
             if parameters.log:
                 evaluator = Evaluator(trainer.model, tag=f't{task_id}v{val_id}')

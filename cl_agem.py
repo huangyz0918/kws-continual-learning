@@ -38,6 +38,7 @@ if __name__ == "__main__":
         parser.add_argument("--bsize", default=1280, type=float, help="the rehearsal buffer size")
         parser.add_argument("--log", default=False, action='store_true',
                             help="record the experiment into web neptune.ai")
+        parser.add_argument("--ek", default=False, action='store_true', help="evaluate the CL by keywords")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
@@ -47,7 +48,7 @@ if __name__ == "__main__":
         parser.add_argument("--model", default="stft", type=str, help="[stft, mfcc]")
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
-        parser.add_argument("--scale", default=1, type=int, help="The scale of model channel")
+        parser.add_argument("--scale", default=1, type=float, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
@@ -133,7 +134,11 @@ if __name__ == "__main__":
         on_task_update(len(learning_tasks), buffer, trainer.device, class_encoding, learned_class_list)
         # start evaluating the CL on previous tasks.
         total_learned_acc = 0
-        for val_id, task in enumerate(learning_tasks):
+        if parameters.ek:
+            evaluate_list = class_list
+        else: 
+            evaluate_list = learning_tasks
+        for val_id, task in enumerate(evaluate_list):
             print(f">>>   Testing on task {val_id}, Keywords: {task}")
             _, val_loader = get_dataloader_keyword(parameters.dpath, task, class_encoding, parameters.batch)
             if parameters.log:

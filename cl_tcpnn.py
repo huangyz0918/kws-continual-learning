@@ -26,6 +26,7 @@ if __name__ == "__main__":
                             help="Test on the task with/without lateral connections")
         parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
         parser.add_argument("--log", default=False, action='store_true', help="record the experiment into web neptune.ai")
+        parser.add_argument("--ek", default=False, action='store_true', help="evaluate the CL by keywords")
         parser.add_argument("--c", default=5, type=float, help="SI surrogate loss coefficient")
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
@@ -34,7 +35,7 @@ if __name__ == "__main__":
 
         parser.add_argument("--cha", default=config["tc-resnet8"], type=list,
                             help="The channel of model layers (in list)")
-        parser.add_argument("--scale", default=1, type=int, help="The scale of model channel")
+        parser.add_argument("--scale", default=1, type=float, help="The scale of model channel")
         parser.add_argument("--freq", default=30, type=int, help="Model saving frequency (in step)")
         parser.add_argument("--save", default="stft", type=str, help="The save name")
         args = parser.parse_args()
@@ -96,10 +97,14 @@ if __name__ == "__main__":
         print(f'Parameter on TASK {task_id}: {parameter_number(trainer.model) / 1024} K')
         # start evaluating the CL on previous tasks.
         total_learned_acc = 0
+        if parameters.ek:
+            evaluate_list = class_list
+        else: 
+            evaluate_list = learning_tasks
         for val_id in range(task_id + 1):
-            print(f">>>   Testing on task {val_id}, Keywords: {learning_tasks[val_id]}")
-            test_encoding = {category: index for index, category in enumerate(learning_tasks[val_id])}
-            _, val_loader = get_dataloader_keyword(parameters.dpath, learning_tasks[val_id], test_encoding,
+            print(f">>>   Testing on task {val_id}, Keywords: {evaluate_list[val_id]}")
+            test_encoding = {category: index for index, category in enumerate(evaluate_list[val_id])}
+            _, val_loader = get_dataloader_keyword(parameters.dpath, evaluate_list[val_id], test_encoding,
                                                    parameters.batch)
             if parameters.log:
                 evaluator = Evaluator(trainer.model, tag=f't{task_id}v{val_id}')
