@@ -160,15 +160,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(
@@ -216,16 +207,6 @@ class Trainer:
                         fisher = fisher_dict[t_id][name]
                         optpar = optpar_dict[t_id][name]
                         loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
-            val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
                 loss.backward()
                 optimizer.step()
 
@@ -311,15 +292,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(
@@ -394,15 +366,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(
@@ -490,15 +453,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(
@@ -579,15 +533,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(
@@ -666,15 +611,6 @@ class Trainer:
                     self.loss_name["valid_correct"] += (predict == labels).sum().item()
                     self.loss_name["valid_accuracy"] = self.loss_name["valid_correct"] / self.loss_name["valid_total"]
             val_acc = self.loss_name["valid_accuracy"]
-            best_acc = 0
-            if val_acc > best_acc:
-                best_acc = val_acc
-                es = 0
-            else:
-                es += 1
-                if es > 1:
-                    print("Early stopping with best accuracy: ", best_acc)
-                    break
             scheduler.step()
             self.model_save()
             print(

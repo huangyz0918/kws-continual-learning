@@ -74,7 +74,7 @@ def plot_param():
     ax.plot(index, toK(tcpnn_fix_list), color=COLOR_LIST[4], ms=10, linewidth=line_width, label='TC-PNN (fix)')
     ax.plot(index, toK(tcpnn_list), color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
     plt.text(x=0, y=32 * 128 / 1000 + 0.5, s="Buffer size of GEM-128", fontsize=17, color="#A52A2A")
-    plt.axhline(y=32 * 128 / 1000, color=COLOR_LIST[0], linewidth=2, xmin=0)
+    plt.axhline(y=32 * 128 / 1000, color=COLOR_LIST[0], linestyle='dashed', linewidth=2, xmin=0)
     # plt.text(x=0, y=32*512/1000 + 0.1, s="GEM-512 buffer size", fontsize=13, color="#A52A2A")
     # plt.axhline(y=32*512/1000, color=COLOR_LIST[0], linewidth=2, xmin=0)
 
@@ -94,9 +94,9 @@ def plot_param():
 if __name__ == "__main__":
     set_style()
 
-    plot_param()
+    # plot_param()
     # accs_native = []
     # accs_sets = [[1, np.nan, np.nan, np.nan, np.nan], [1, 1, np.nan, np.nan, np.nan], [2, 2, 2, np.nan, np.nan],
     #              [3, 3, 3, 3, np.nan], [4, 4, 4, 4, 4]]
     # plot_keyword_heatmap(accs_sets)
-    # plot_avg_acc()
+    plot_avg_acc()

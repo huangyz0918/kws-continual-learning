@@ -7,6 +7,9 @@ python cl_cf_keyword.py --epoch 10 >> log_finetune.txt
 echo 'run the naive rehearsal...'
 python cl_nr.py --epoch 10 >> log_nr.txt
 
+echo 'run ewc...'
+python cl_ewc.py --epoch 10  --elambda 5 >> log_ewc.txt
+
 echo 'run si...'
 python cl_si.py --epoch 10 --c 11 --elambda 0.0007 >> log_si.txt
 
