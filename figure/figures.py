@@ -2,7 +2,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from figure.util import set_style, set_size, WIDTH, COLOR_LIST, MARKER_LIST
+from figure.util import set_style, set_size, WIDTH, COLOR_LIST
 
 
 def plot_keyword_heatmap(accs_sets):
