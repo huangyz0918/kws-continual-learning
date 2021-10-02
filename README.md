@@ -60,7 +60,7 @@ bash ./run_all.sh
 Which contains the hyperparameters of all the different CL methods.
 
 
-### Continual Learning 
+## Continual Learning 
 
 Here is a list of continual learning methods available for KWS,
 
@@ -74,6 +74,6 @@ Here is a list of continual learning methods available for KWS,
 - Progressive Neural Networks (PNN) [[view]](./cl_pnn.py)
 - Temporal Progressive Net (TP-Net) [[view]](./cl_tpnet.py)
 
-### License
+## License
 
 The project is available as open source under the terms of the [MIT License](./LICENSE.txt).
