@@ -33,7 +33,7 @@ Note: to run the `download_gsc.sh` in macOS, please run `brew install coreutils`
 
 ### Start Training
 
-We use [Neptune](https://app.neptune.ai/) to log the training process, please setup the logging configuration in the `train.py`.
+We use [Neptune](https://app.neptune.ai/) to log the training process, please setup the logging configuration in each training script.
 
 ```python
     ...
@@ -43,7 +43,9 @@ We use [Neptune](https://app.neptune.ai/) to log the training process, please se
     ...
 ```
 
-And you are all set to run the training script by
+Or you can just run the script without `--log`. 
+
+After the logging configuration, you are all set to run the training script by
 
 ```bash
 python train.py
@@ -54,9 +56,18 @@ If you want to reproduce all the experiment results, you can simply run
 ```python
 bash ./run_all.sh
 ```
-### Reference
 
-We use TC-ResNet as the basic KWS model.
+Which contains the hyperparameters of all the different CL methods.
 
-- [TC-Resnet Official Code](https://github.com/hyperconnect/TC-ResNet)
-- [TC-Resnet Paper](https://arxiv.org/pdf/1904.03814.pdf)
+
+### Continual Learning 
+
+Here is a list of continual learning methods available for KWS,
+
+- Elastic Weight Consolidation (EWC)
+- Synaptic Intelligence (SI)
+- 
+
+### License
+
+The project is available as open source under the terms of the [MIT License](./LICENSE.txt).
