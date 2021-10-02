@@ -36,9 +36,11 @@ def plot_avg_acc():
     ax.plot(index, si_acc_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='SI')
     ax.plot(index, gem_acc_list, color=COLOR_LIST[5], ms=10, linewidth=line_width, label='GEM')
     ax.plot(index, tcpnn_acc_list, color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
-    ax.plot(index, single_acc_list, color=COLOR_LIST[0], ms=10, linewidth=line_width, label='Stand-alone')
     ax.plot(index, nr_acc_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='Native Rehearsal')
-    ax.plot(index, tune_acc_list, color=COLOR_LIST[6], ms=10, linewidth=line_width, label='Fine-tune')
+    ax.plot(index, single_acc_list, color=COLOR_LIST[0], ms=10, linestyle='dashed', linewidth=line_width,
+            label='Stand-alone')
+    ax.plot(index, tune_acc_list, color=COLOR_LIST[6], ms=10, linestyle='dashed', linewidth=line_width,
+            label='Fine-tune')
 
     plt.margins(x=0.08)
 
@@ -70,7 +72,8 @@ def plot_param():
     index = np.arange(len(labels))
 
     line_width = 2
-    ax.plot(index, toK(sl_list), color=COLOR_LIST[3], ms=10, linewidth=line_width, label='Stand-alone')
+    ax.plot(index, toK(sl_list), color=COLOR_LIST[3], ms=10, linestyle='dashed', linewidth=line_width,
+            label='Stand-alone')
     ax.plot(index, toK(tcpnn_fix_list), color=COLOR_LIST[4], ms=10, linewidth=line_width, label='TC-PNN (fix)')
     ax.plot(index, toK(tcpnn_list), color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
     plt.text(x=0, y=32 * 128 / 1000 + 0.5, s="Buffer size of GEM-128", fontsize=17, color="#A52A2A")
@@ -94,7 +97,7 @@ def plot_param():
 if __name__ == "__main__":
     set_style()
 
-    # plot_param()
+    plot_param()
     # accs_native = []
     # accs_sets = [[1, np.nan, np.nan, np.nan, np.nan], [1, 1, np.nan, np.nan, np.nan], [2, 2, 2, np.nan, np.nan],
     #              [3, 3, 3, 3, np.nan], [4, 4, 4, 4, 4]]
