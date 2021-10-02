@@ -64,9 +64,15 @@ Which contains the hyperparameters of all the different CL methods.
 
 Here is a list of continual learning methods available for KWS,
 
-- Elastic Weight Consolidation (EWC)
-- Synaptic Intelligence (SI)
-- 
+- Elastic Weight Consolidation (EWC) [[view]](./cl_ewc.py)
+- Online Elastic Weight Consolidation (Online EWC) [[view]](./cl_ewc_on.py)
+- Synaptic Intelligence (SI) [[view]](./cl_si.py)
+- Gradient Episodic Memory (GEM) [[view]](./cl_gem.py)
+- Advanced Gradient Episodic Memory (A-GEM) [[view]](./cl_agem.py)
+- Naive Rehearsal (NR) [[view]](./cl_nr.py)
+- Meta-Experience Replay (MER) [[view]](./cl_mer.py)
+- Progressive Neural Networks (PNN) [[view]](./cl_pnn.py)
+- Temporal Progressive Net (TP-Net) [[view]](./cl_tpnet.py)
 
 ### License
 
