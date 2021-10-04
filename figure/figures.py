@@ -34,7 +34,7 @@ def plot_avg_acc():
 
     line_width = 2
     ax.plot(index, si_acc_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='SI')
-    ax.plot(index, gem_acc_list, color=COLOR_LIST[5], ms=10, linewidth=line_width, label='GEM')
+    ax.plot(index, gem_acc_list, color=COLOR_LIST[5], ms=10, linewidth=line_width, label='GEM-128')
     ax.plot(index, tcpnn_acc_list, color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
     ax.plot(index, nr_acc_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='Native Rehearsal')
     ax.plot(index, single_acc_list, color=COLOR_LIST[0], ms=10, linestyle='dashed', linewidth=line_width,
