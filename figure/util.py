@@ -32,7 +32,7 @@ def set_size(width, fraction=1):
     inches_per_pt = 1 / 72.27
 
     # Golden ratio to set aesthetic figure height
-    golden_ratio = (5 ** .5 - 1) / 2
+    golden_ratio = (5 ** .5 - 1) / 1.5
 
     # Figure width in inches
     fig_width_in = fig_width_pt * inches_per_pt
@@ -53,7 +53,7 @@ def set_style():
         "text.usetex": True,
         "font.family": "serif",
         # Use 10pt font in plots, to match 10pt font in document
-        "axes.labelsize": 16,
+        "axes.labelsize": 18,
         "font.size": 16,
         # Make the legend/label fonts a little smaller
         "legend.fontsize": 12,

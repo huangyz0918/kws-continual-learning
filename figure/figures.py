@@ -17,15 +17,25 @@ def plot_keyword_heatmap(accs_sets):
     plt.show()
 
 
-def plot_avg_acc():
+def plot_avg_efficiency():
     """
     Plot the average accuracy after learning each new task.
     """
+    static_param = 67.69
     si_acc_list = [96.2, 87.7, 54.1, 43.8, 29.9, 25.6]
-    gem_acc_list = [96.2, 74.4, 73.0, 78.3, 62.9, 58.5]
-    nr_acc_list = [96.2, 91.7, 92.5, 89.4, 90.1, 88.9]
-    tune_acc_list = [96.2, 49.6, 32.8, 27.5, 20, 17.1]
-    tcpnn_acc_list = [96.2, 86.0, 92.8, 84.6, 94.5, 83.1]
+    ewc_acc_list = [96.2, 49.6, 32.8, 27.5, 20, 17.1]
+    gem_acc_list = [96.2, 79.1, 74.2, 71.3, 62.4, 52.9]
+
+    si_acc_list = [x / static_param for x in si_acc_list]
+    ewc_acc_list = [x / static_param for x in ewc_acc_list]
+    gem_acc_list = [x / static_param for x in gem_acc_list]
+
+    # nr_acc_list = [96.2, 91.7, 92.5, 89.4, 90.1, 88.9] # 100%
+    nr_05_acc_list = [96.2, 81.2, 80.4, 77.2, 79.3, 78.9]
+    nr_075_acc_list = [96.2, 84.2, 85.5, 80.0, 85.1, 81.4]
+
+    tune_acc_list = [96.2, 51.2, 30.0, 24.1, 19.9, 18.4]
+    tcpnn_acc_list = [96.2, 86.1, 91.8, 87.6, 94.2, 86.5]
     single_acc_list = [96.2, 95.0, 98.2, 95.4, 96.6, 97.6]
 
     fig, ax = plt.subplots(1, 1, figsize=set_size(WIDTH))
@@ -33,10 +43,12 @@ def plot_avg_acc():
     index = np.arange(len(label))
 
     line_width = 2
-    ax.plot(index, si_acc_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='SI')
+    ax.plot(index, si_acc_list, color=COLOR_LIST[6], ms=10, linewidth=line_width, label='SI')
+    ax.plot(index, ewc_acc_list, color=COLOR_LIST[1], ms=10, linewidth=line_width, label='EWC')
+    ax.plot(index, nr_05_acc_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='NR-0.5')
+    ax.plot(index, nr_075_acc_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='NR-0.75')
     ax.plot(index, gem_acc_list, color=COLOR_LIST[5], ms=10, linewidth=line_width, label='GEM-128')
     ax.plot(index, tcpnn_acc_list, color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
-    ax.plot(index, nr_acc_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='Native Rehearsal')
     ax.plot(index, single_acc_list, color=COLOR_LIST[0], ms=10, linestyle='dashed', linewidth=line_width,
             label='Stand-alone')
     ax.plot(index, tune_acc_list, color=COLOR_LIST[6], ms=10, linestyle='dashed', linewidth=line_width,
@@ -46,12 +58,55 @@ def plot_avg_acc():
 
     ax.set_xlabel('Task Number', fontsize=16)
     ax.set_ylabel('ACC (%)', fontsize=16)
-    ax.set_ylim([-19, 110])
+    ax.set_ylim([-19.99, 110])
 
     ax.tick_params(axis='x', rotation=0)
     ax.set_xticks(index)
     ax.set_xticklabels(label, fontsize=13)
-    ax.legend(loc='lower left', fontsize=13, ncol=2)
+    ax.legend(loc='lower left', fontsize=12, ncol=2)
+    plt.savefig(f'./task_avg_acc.pdf', format='pdf', bbox_inches='tight')
+
+
+def plot_avg_acc():
+    """
+    Plot the average accuracy after learning each new task.
+    """
+    si_acc_list = [96.2, 87.7, 54.1, 43.8, 29.9, 25.6]
+    gem_acc_list = [96.2, 79.1, 74.2, 71.3, 62.4, 52.9]
+    # nr_acc_list = [96.2, 91.7, 92.5, 89.4, 90.1, 88.9] # 100%
+    nr_05_acc_list = [96.2, 81.2, 80.4, 77.2, 79.3, 78.9]
+    nr_075_acc_list = [96.2, 84.2, 85.5, 80.0, 85.1, 81.4]
+    ewc_acc_list = [96.2, 49.6, 32.8, 27.5, 20, 17.1]
+    tune_acc_list = [96.2, 51.2, 30.0, 24.1, 19.9, 18.4]
+    tcpnn_acc_list = [96.2, 86.1, 91.8, 87.6, 94.2, 86.5]
+    single_acc_list = [96.2, 95.0, 98.2, 95.4, 96.6, 97.6]
+
+    fig, ax = plt.subplots(1, 1, figsize=set_size(WIDTH))
+    label = range(len(si_acc_list))
+    index = np.arange(len(label))
+
+    line_width = 2
+    ax.plot(index, si_acc_list, color=COLOR_LIST[6], ms=10, linewidth=line_width, label='SI')
+    ax.plot(index, ewc_acc_list, color=COLOR_LIST[1], ms=10, linewidth=line_width, label='EWC')
+    ax.plot(index, nr_05_acc_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='NR-0.5')
+    ax.plot(index, nr_075_acc_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='NR-0.75')
+    ax.plot(index, gem_acc_list, color=COLOR_LIST[5], ms=10, linewidth=line_width, label='GEM-128')
+    ax.plot(index, tcpnn_acc_list, color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
+    ax.plot(index, single_acc_list, color=COLOR_LIST[0], ms=10, linestyle='dashed', linewidth=line_width,
+            label='Stand-alone')
+    ax.plot(index, tune_acc_list, color=COLOR_LIST[6], ms=10, linestyle='dashed', linewidth=line_width,
+            label='Fine-tune')
+
+    plt.margins(x=0.08)
+
+    ax.set_xlabel('Task Number', fontsize=16)
+    ax.set_ylabel('ACC (%)', fontsize=16)
+    ax.set_ylim([-19.99, 110])
+
+    ax.tick_params(axis='x', rotation=0)
+    ax.set_xticks(index)
+    ax.set_xticklabels(label, fontsize=13)
+    ax.legend(loc='lower left', fontsize=12, ncol=2)
     plt.savefig(f'./task_avg_acc.pdf', format='pdf', bbox_inches='tight')
 
 
@@ -71,35 +126,72 @@ def plot_param():
     fig, ax = plt.subplots(1, 1, figsize=set_size(WIDTH))
     index = np.arange(len(labels))
 
-    line_width = 2
+    line_width = 4
     ax.plot(index, toK(sl_list), color=COLOR_LIST[3], ms=10, linestyle='dashed', linewidth=line_width,
             label='Stand-alone')
     ax.plot(index, toK(tcpnn_fix_list), color=COLOR_LIST[4], ms=10, linewidth=line_width, label='TC-PNN (fix)')
     ax.plot(index, toK(tcpnn_list), color=COLOR_LIST[2], ms=10, linewidth=line_width, label='TC-PNN')
-    plt.text(x=0, y=32 * 128 / 1000 + 0.5, s="Buffer size of GEM-128", fontsize=17, color="#A52A2A")
-    plt.axhline(y=32 * 128 / 1000, color=COLOR_LIST[0], linestyle='dashed', linewidth=2, xmin=0)
+    plt.text(x=0, y=32 * 128 / 1000 + 0.5, s="Buffer size of GEM-128", fontsize=22, color="#A52A2A")
+    plt.axhline(y=32 * 128 / 1000, color=COLOR_LIST[0], linestyle='dashed', linewidth=line_width, xmin=0)
     # plt.text(x=0, y=32*512/1000 + 0.1, s="GEM-512 buffer size", fontsize=13, color="#A52A2A")
     # plt.axhline(y=32*512/1000, color=COLOR_LIST[0], linewidth=2, xmin=0)
 
     plt.margins(x=0.08)
 
-    ax.set_xlabel('Task Number', fontsize=17)
-    ax.set_ylabel('Extra Param (M)', fontsize=17)
+    ax.set_xlabel('Task Number', fontsize=22)
+    ax.set_ylabel('Extra Param (M)', fontsize=22)
     # ax.set_ylim([-19, 110])
 
     ax.tick_params(axis='x', rotation=0)
     ax.set_xticks(index)
-    ax.set_xticklabels(labels, fontsize=13)
-    ax.legend(loc='upper left', fontsize=17)
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels([0, 2, 4, 6, 8, 10, 12, 14, 16, 18])
+    # ax.tick_params(axis='x', which='major', labelsize=18)
+    # ax.tick_params(axis='y', which='major', labelsize=18)
+    ax.legend(loc='upper left', fontsize=22)
     plt.savefig(f'./task_param.pdf', format='pdf', bbox_inches='tight')
+
+
+def plot_param_acc():
+    """
+    Plot the Extra Parameters and Corresponding ACC of TC-PNN.
+    """
+    parm_list = [0.9, 3.3, 10, 20, 30, 50, 70]
+    acc_3_list = [72.3, 87.4, 95.7, 96.6, 96.9, 97.0, 97.1]
+    acc_15_list = [53.8, 71.6, 80.0, 83.1, 84.9, 85.1, 86.4]
+
+    fig, ax = plt.subplots(1, 1, figsize=set_size(WIDTH))
+
+    line_width = 4
+    ax.plot(parm_list, acc_3_list, color=COLOR_LIST[3], ms=10, linewidth=line_width, label='3-keyword spotting')
+    ax.plot(parm_list, acc_15_list, color=COLOR_LIST[4], ms=10, linewidth=line_width, label='15-keyword spotting')
+
+    plt.margins(x=0.08)
+
+    ax.set_xlabel('Extra Parameter (K)', fontsize=22)
+    ax.set_ylabel('Avg. Accuracy (%)', fontsize=22)
+    ax.set_ylim([50, 100])
+
+    ax.tick_params(axis='x', rotation=0)
+    ax.xaxis.set_ticks(parm_list)
+    ax.set_xticklabels(parm_list)
+    ax.set_yticklabels([50, 60, 70, 80, 90, 100])
+    xticks = ax.xaxis.get_major_ticks()
+    xticks[0].label1.set_visible(False)
+    xticks[1].label1.set_visible(False)
+    # ax.tick_params(axis='x', which='major', labelsize=18)
+    # ax.tick_params(axis='y', which='major', labelsize=18)
+    ax.legend(loc='lower right', fontsize=22)
+    plt.savefig(f'./task_param_acc.pdf', format='pdf', bbox_inches='tight')
 
 
 if __name__ == "__main__":
     set_style()
 
     plot_param()
+    plot_param_acc()
     # accs_native = []
     # accs_sets = [[1, np.nan, np.nan, np.nan, np.nan], [1, 1, np.nan, np.nan, np.nan], [2, 2, 2, np.nan, np.nan],
     #              [3, 3, 3, 3, np.nan], [4, 4, 4, 4, 4]]
     # plot_keyword_heatmap(accs_sets)
-    plot_avg_acc()
+    # plot_avg_acc()
