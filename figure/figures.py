@@ -28,7 +28,7 @@ def plot_avg_acc():
     nr_075_acc_list = [96.2, 84.2, 85.5, 80.0, 85.1, 81.4]
     ewc_acc_list = [96.2, 49.6, 32.8, 27.5, 20, 17.1]
     tune_acc_list = [96.2, 51.2, 30.0, 24.1, 19.9, 18.4]
-    tcpnn_acc_list = [96.2, 86.1, 91.8, 87.6, 94.2, 88.4]
+    tcpnn_acc_list = [96.2, 86.1, 91.8, 87.6, 94.2, 86.5]
     single_acc_list = [96.2, 95.0, 98.2, 95.4, 96.6, 97.6]
 
     fig, ax = plt.subplots(1, 1, figsize=set_size(WIDTH))
@@ -96,7 +96,7 @@ def plot_param():
     plt.margins(x=0.08)
 
     ax.set_xlabel('Task Number', fontsize=22)
-    ax.set_ylabel('Extra Param (M)', fontsize=22)
+    ax.set_ylabel('Sub-network Param (M)', fontsize=22)
     # ax.set_ylim([-19, 110])
 
     ax.tick_params(axis='x', rotation=0)
@@ -126,7 +126,7 @@ def plot_param_acc():
     plt.margins(x=0.08)
 
     ax.set_xlabel('Extra Parameter (K)', fontsize=22)
-    ax.set_ylabel('Avg. Accuracy (%)', fontsize=22)
+    ax.set_ylabel('ACC (%)', fontsize=22)
     ax.set_ylim([50, 100])
 
     ax.tick_params(axis='x', rotation=0)
@@ -146,9 +146,9 @@ if __name__ == "__main__":
     set_style()
 
     # plot_param()
-    # plot_param_acc()
+    plot_param_acc()
     # accs_native = []
     # accs_sets = [[1, np.nan, np.nan, np.nan, np.nan], [1, 1, np.nan, np.nan, np.nan], [2, 2, 2, np.nan, np.nan],
     #              [3, 3, 3, 3, np.nan], [4, 4, 4, 4, 4]]
     # plot_keyword_heatmap(accs_sets)
-    plot_avg_acc()
+    # plot_avg_acc()
