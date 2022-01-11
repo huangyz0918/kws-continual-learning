@@ -12,7 +12,7 @@ Here is a list of continual learning methods available for KWS,
 - Naive Rehearsal (NR) [[view]](./cl_nr.py)
 - Meta-Experience Replay (MER) [[view]](./cl_mer.py)
 - Progressive Neural Networks (PNN) [[view]](./cl_pnn.py)
-- Temporal Progressive Net (TP-Net) [[view]](./cl_tpnet.py)
+- Temporal Progressive Net (PCL-KWS) [[view]](./cl_pcl.py)
 ## Quick Start
 
 ### Setup Environment
