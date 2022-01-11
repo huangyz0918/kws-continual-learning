@@ -22,5 +22,5 @@ python cl_gem.py --epoch 10 --bsize 512 >> log_gem_512.txt
 echo 'run gem with buffer size: 1024...'
 python cl_gem.py --epoch 10 --bsize 1024 >> log_gem_1024.txt
 
-echo 'run tp-net...'
-python cl_tpnet.py --epoch 10 >> log_tpnet.txt
+echo 'run pcl-kws...'
+python cl_pcl.py --epoch 10 >> log_pcl.txt
