@@ -4,7 +4,7 @@ Example training script of KWS models.
 @author huangyz0918
 @date 06/08/2021
 """
-
+import torch
 import neptune
 import argparse
 from model import TCResNet, STFT_TCResnet, MFCC_TCResnet, STFT_MLP, MFCC_RNN
@@ -18,6 +18,7 @@ if __name__ == "__main__":
         parser.add_argument("--batch", default=128, type=int, help="Training batch size")
         parser.add_argument("--step", default=30, type=int, help="Training step size")
         parser.add_argument("--gpu", default=4, type=int, help="Number of GPU device")
+        parser.add_argument("--tqdm", default=False, action='store_true', help="enable terminal tqdm output.")
         parser.add_argument("--dpath", default="./dataset", type=str, help="The path of dataset")
 
         parser.add_argument("--model", default="stft", type=str, help=["stft", "mfcc"])
@@ -56,6 +57,7 @@ if __name__ == "__main__":
     else:
         model = None
 
+    optimizer = torch.optim.SGD(model.parameters(), lr=parameters.lr, momentum=0.9)
     class_encoding = {category: index for index, category in enumerate(class_list)}
     train_loader, test_loader = get_dataloader_keyword(parameters.dpath, class_list, class_encoding, parameters.batch)
-    Trainer(parameters, model).model_train(0, train_loader, test_loader, tag='CF')  # task id: 0
+    Trainer(parameters, model).model_train(0, optimizer, train_loader, test_loader, tag='CF')  # task id: 0
