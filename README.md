@@ -13,6 +13,8 @@ Here is a list of continual learning methods available for KWS,
 - Meta-Experience Replay (MER) [[view]](./cl_mer.py)
 - Progressive Neural Networks (PNN) [[view]](./cl_pnn.py)
 - Temporal Progressive Net (PCL-KWS) [[view]](./cl_pcl.py)
+
+
 ## Quick Start
 
 ### Setup Environment
@@ -69,6 +71,21 @@ bash ./run_all.sh
 ```
 
 Which contains the hyperparameters of all the different CL methods.
+
+## Citation
+
+If the work did some helps on your research/project, please cite our paper in [ICASSP 2022](https://2022.ieeeicassp.org/). Thank you!
+
+```
+@inproceedings{huang2022progressive,
+  title={Progressive Continual Learning for Spoken Keyword Spotting},
+  author={Huang, Yizheng and Hou, Nana and Chen, Nancy F},
+  booktitle={ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={7552--7556},
+  year={2022},
+  organization={IEEE}
+}
+```
 
 ## License
 
